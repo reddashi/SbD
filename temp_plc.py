@@ -1,64 +1,62 @@
-import random, time
-from typing import Callable
+import time
+import random
+import threading
 
-# ---------- configurable thresholds ----------
-MIN_TEMP = 25          # °C – lower bound of comfort band
-MAX_TEMP = 27          # °C – upper bound of comfort band
-TEMP_MIN_BOUND = 0     # absolute physical lower limit
-TEMP_MAX_BOUND = 50    # absolute physical upper limit
-TEMP_INTERVAL  = 7     # seconds between sensor updates
-# ---------------------------------------------
+TEMP_LOWER = 22.0
+TEMP_UPPER = 28.0
+TEMP_CHANGE_RATE = 0.5
 
 class TemperaturePLC:
-    """
-    Simulates a temperature-control PLC that:
-      • updates an internal temperature every `TEMP_INTERVAL` seconds,
-      • calculates proportional heater / cooler power (%) to re-enter
-        the [MIN_TEMP, MAX_TEMP] band,
-      • sends a payload dict upstream via a user-provided `sender`.
-    """
-    def __init__(self,
-                 sender: Callable[[dict], None],
-                 initial_temp: float = (MIN_TEMP + MAX_TEMP) / 2,
-                 drift: float = 2.0):
-        self.temp  = initial_temp
-        self.drift = drift
-        self.send  = sender
+    def __init__(self):
+        self.current_temp = random.uniform(TEMP_LOWER, TEMP_UPPER)
+        self.heater_pct = 0
+        self.cooler_pct = 0
+        self.direction = random.choice([0, 1])  # 0 = cooling, 1 = heating
+        self.running = True
+        threading.Thread(target=self.simulate, daemon=True).start()
 
-    # ---- internal helpers --------------------------------------------------
-    def _tick_environment(self):
-        """Randomly drifts temperature within physical bounds."""
-        self.temp += random.uniform(-self.drift, self.drift)
-        self.temp  = max(TEMP_MIN_BOUND, min(TEMP_MAX_BOUND, self.temp))
+    def simulate(self):
+        while self.running:
+            if self.heater_pct == 0 and self.cooler_pct == 0:
+                if self.direction == 0:
+                    self.current_temp -= TEMP_CHANGE_RATE
+                else:
+                    self.current_temp += TEMP_CHANGE_RATE
+            else:
+                # If actuator is active, reset direction for next cycle
+                self.direction = random.choice([0, 1])
+            print(f"[TempPLC] Temp: {self.current_temp:.2f}°C | Dir: {'Cooling' if self.direction == 0 else 'Heating'} | Heater: {self.heater_pct}% | Cooler: {self.cooler_pct}%")
+            time.sleep(1)
 
-    def _control_signal(self) -> tuple[float, float]:
-        """
-        Returns (heater_pct, cooler_pct); only one is non-zero.
-        Heater (+%) when below MIN_TEMP, Cooler (+%) when above MAX_TEMP.
-        """
-        if self.temp < MIN_TEMP:
-            pct = ((MIN_TEMP - self.temp) / (MIN_TEMP - TEMP_MIN_BOUND)) * 100
-            return min(pct, 100), 0.0
-        elif self.temp > MAX_TEMP:
-            pct = ((self.temp - MAX_TEMP) / (TEMP_MAX_BOUND - MAX_TEMP)) * 100
-            return 0.0, min(pct, 100)
-        return 0.0, 0.0
-    # ------------------------------------------------------------------------
+    def set_actuators(self, heater_pct=0, cooler_pct=0):
+        self.heater_pct = heater_pct
+        self.cooler_pct = cooler_pct
 
-    def run(self, cycles: int | None = None):
-        """
-        Starts the 7-second loop.
-        • cycles=None → run indefinitely.
-        • cycles=int  → run exactly that many iterations.
-        """
-        count = 0
-        while cycles is None or count < cycles:
-            self._tick_environment()
-            heat, cool = self._control_signal()
-            self.send({
-                "temperature": round(self.temp, 2),
-                "heater_pct":  round(heat, 2),
-                "cooler_pct":  round(cool, 2),
-            })
-            count += 1
-            time.sleep(TEMP_INTERVAL)
+    def get_status(self):
+        return {
+            "temp": round(self.current_temp, 2),
+            "heater_pct": self.heater_pct,
+            "cooler_pct": self.cooler_pct
+        }
+
+if __name__ == "__main__":
+    plc = TemperaturePLC()
+
+    try:
+        while True:
+            # Example actuator trigger logic for test/demo:
+            temp = plc.current_temp
+
+            # simulate actuator commands
+            if temp > TEMP_UPPER:
+                plc.set_actuators(heater_pct=0, cooler_pct=100)
+            elif temp < TEMP_LOWER:
+                plc.set_actuators(heater_pct=100, cooler_pct=0)
+            else:
+                plc.set_actuators(heater_pct=0, cooler_pct=0)
+
+            time.sleep(1)
+
+    except KeyboardInterrupt:
+        plc.running = False
+        print("Temperature PLC stopped.")
