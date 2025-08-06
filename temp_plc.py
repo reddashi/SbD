@@ -60,3 +60,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         plc.running = False
         print("Temperature PLC stopped.")
+
+__all__ = ['TemperaturePLC', 'TEMP_LOWER', 'TEMP_UPPER']

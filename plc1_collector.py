@@ -1,13 +1,16 @@
 import threading
 import time
 import json
+from temp_plc import TemperaturePLC, TEMP_LOWER, TEMP_UPPER
+
 from gh import (
-    TemperaturePLC, IrrigationPLC, LightPLC, CO2PLC,
+    IrrigationPLC, LightPLC, CO2PLC,
     MIN_TEMP, MAX_TEMP,
     MIN_MOISTURE, MAX_MOISTURE,
     MIN_LIGHT, MAX_LIGHT,
     MIN_CO2, MAX_CO2
 )
+
 
 # Use thresholds from gh.py to avoid duplication
 THRESHOLDS = {
