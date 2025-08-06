@@ -53,11 +53,11 @@ class TemperaturePLC:
                         self.current_temp += TEMP_CHANGE_RATE
 
                 # OUT OF THRESHOLD: activate actuator
-                if self.current_temp < MIN_TEMP:
+                if self.current_temp < MIN_TEMP - 0.2 :
                     self.heater_pct = 100
                     self.cooler_pct = 0
                     self.direction = None
-                elif self.current_temp > MAX_TEMP:
+                elif self.current_temp > MAX_TEMP + 0.2 :
                     self.cooler_pct = 100
                     self.heater_pct = 0
                     self.direction = None
