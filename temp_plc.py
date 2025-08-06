@@ -2,9 +2,10 @@ import time
 import random
 import threading
 
+# Thresholds for temperature band
 TEMP_LOWER = 22.0
 TEMP_UPPER = 28.0
-TEMP_CHANGE_RATE = 0.5
+TEMP_CHANGE_RATE = 0.5  # degrees per second
 
 class TemperaturePLC:
     def __init__(self):
@@ -23,9 +24,12 @@ class TemperaturePLC:
                 else:
                     self.current_temp += TEMP_CHANGE_RATE
             else:
-                # If actuator is active, reset direction for next cycle
+                # Actuator is active; reset toss for next idle period
                 self.direction = random.choice([0, 1])
-            print(f"[TempPLC] Temp: {self.current_temp:.2f}°C | Dir: {'Cooling' if self.direction == 0 else 'Heating'} | Heater: {self.heater_pct}% | Cooler: {self.cooler_pct}%")
+
+            print(f"[TempPLC] Temp: {self.current_temp:.2f}°C | "
+                  f"Dir: {'Cooling' if self.direction == 0 else 'Heating'} | "
+                  f"Heater: {self.heater_pct}% | Cooler: {self.cooler_pct}%")
             time.sleep(1)
 
     def set_actuators(self, heater_pct=0, cooler_pct=0):
@@ -39,26 +43,5 @@ class TemperaturePLC:
             "cooler_pct": self.cooler_pct
         }
 
-if __name__ == "__main__":
-    plc = TemperaturePLC()
-
-    try:
-        while True:
-            # Example actuator trigger logic for test/demo:
-            temp = plc.current_temp
-
-            # simulate actuator commands
-            if temp > TEMP_UPPER:
-                plc.set_actuators(heater_pct=0, cooler_pct=100)
-            elif temp < TEMP_LOWER:
-                plc.set_actuators(heater_pct=100, cooler_pct=0)
-            else:
-                plc.set_actuators(heater_pct=0, cooler_pct=0)
-
-            time.sleep(1)
-
-    except KeyboardInterrupt:
-        plc.running = False
-        print("Temperature PLC stopped.")
-
+# Exportable items for external use
 __all__ = ['TemperaturePLC', 'TEMP_LOWER', 'TEMP_UPPER']
