@@ -1,47 +1,48 @@
 import time
 import random
-import threading
 
-# Thresholds for temperature band
 TEMP_LOWER = 22.0
 TEMP_UPPER = 28.0
 TEMP_CHANGE_RATE = 0.5  # degrees per second
 
 class TemperaturePLC:
-    def __init__(self):
+    def __init__(self, sender=None):
         self.current_temp = random.uniform(TEMP_LOWER, TEMP_UPPER)
         self.heater_pct = 0
         self.cooler_pct = 0
         self.direction = random.choice([0, 1])  # 0 = cooling, 1 = heating
-        self.running = True
-        threading.Thread(target=self.simulate, daemon=True).start()
+        self.sender = sender or (lambda data: None)
 
-    def simulate(self):
-        while self.running:
+    def run(self, cycles=1):
+        for _ in range(cycles):
             if self.heater_pct == 0 and self.cooler_pct == 0:
+                # Random walk according to direction
                 if self.direction == 0:
                     self.current_temp -= TEMP_CHANGE_RATE
                 else:
                     self.current_temp += TEMP_CHANGE_RATE
             else:
-                # Actuator is active; reset toss for next idle period
+                # Reset direction if actuators are working
                 self.direction = random.choice([0, 1])
 
-            print(f"[TempPLC] Temp: {self.current_temp:.2f}°C | "
-                  f"Dir: {'Cooling' if self.direction == 0 else 'Heating'} | "
-                  f"Heater: {self.heater_pct}% | Cooler: {self.cooler_pct}%")
+            # Automatic heater/cooler response
+            if self.current_temp > TEMP_UPPER:
+                self.heater_pct = 0
+                self.cooler_pct = 100
+            elif self.current_temp < TEMP_LOWER:
+                self.heater_pct = 100
+                self.cooler_pct = 0
+            else:
+                self.heater_pct = 0
+                self.cooler_pct = 0
+
+            # Send sensor and actuator values
+            self.sender({
+                "temperature": round(self.current_temp, 2),
+                "heater_pct": self.heater_pct,
+                "cooler_pct": self.cooler_pct
+            })
+
             time.sleep(1)
 
-    def set_actuators(self, heater_pct=0, cooler_pct=0):
-        self.heater_pct = heater_pct
-        self.cooler_pct = cooler_pct
-
-    def get_status(self):
-        return {
-            "temp": round(self.current_temp, 2),
-            "heater_pct": self.heater_pct,
-            "cooler_pct": self.cooler_pct
-        }
-
-# Exportable items for external use
 __all__ = ['TemperaturePLC', 'TEMP_LOWER', 'TEMP_UPPER']
