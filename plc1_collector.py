@@ -84,4 +84,4 @@ if __name__ == "__main__":
 
 
         print(json.dumps(output), flush=True)
-        time.sleep(2)
+        time.sleep(1)
