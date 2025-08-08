@@ -144,10 +144,14 @@
         Light: <span id="lightVal">--</span> lux
         <div class="bar"><div id="lightBar" class="fill"></div></div>
       </div>
-      <div class="actuator">Grow Light: <span id="growPct">--</span>% <span id="growStatus" class="status">✅</span>
-        <div class="act-bar"><div id="growGauge" class="act-fill"></div></div>
+      <div class="actuator">Lamp Light: <span id="lampPct">--</span>% <span id="lampStatus" class="status">✅</span>
+        <div class="act-bar"><div id="lampGauge" class="act-fill"></div></div>
+      </div>
+      <div class="actuator">Shutter: <span id="shutterPct">--</span>% <span id="shutterStatus" class="status">✅</span>
+        <div class="act-bar"><div id="shutterGauge" class="act-fill"></div></div>
       </div>
     </div>
+
 
     <!-- CO2 -->
     <div class="plc-box">
@@ -198,7 +202,7 @@
         document.getElementById('timestamp').innerText = "Timestamp: " + s.timestamp;
 
         // Gauges
-        document.getElementById('tempBar').style.width = (s.temperature / 40 * 100) + "%";
+        document.getElementById('tempBar').style.width = (s.temperature / 50 * 100) + "%";
         document.getElementById('humBar').style.width = (s.humidity / 100 * 100) + "%";
         document.getElementById('co2Bar').style.width = (s.co2 / 1200 * 100) + "%";
         document.getElementById('lightBar').style.width = (s.light / 1000 * 100) + "%";
@@ -208,7 +212,8 @@
         document.getElementById('coolerPct').innerText = a.cooler_pct;
         document.getElementById('pumpPct').innerText = a.pump_pct;
         document.getElementById('drainPct').innerText = a.drain_pct;
-        document.getElementById('growPct').innerText = a.grow_power_pct;
+        document.getElementById('lampPct').innerText = a.lamp_pct;
+        document.getElementById('shutterPct').innerText = a.shutter_pct;
         document.getElementById('co2PumpPct').innerText = a.co2_pump_pct;
         document.getElementById('co2VentPct').innerText = a.co2_vent_pct;
 
@@ -216,14 +221,15 @@
         setActuator("cooler", a.cooler_pct);
         setActuator("pump", a.pump_pct);
         setActuator("drain", a.drain_pct);
-        setActuator("grow", a.grow_power_pct);
+        setActuator("lamp", a.lamp_pct);
+        setActuator("shutter", a.shutter_pct);
         setActuator("co2Pump", a.co2_pump_pct);
         setActuator("co2Vent", a.co2_vent_pct);
 
         // Alerts
         const alertEl = document.getElementById('alerts');
         if (Object.keys(alerts).length === 0) {
-          alertEl.innerHTML = `<span style="color:green;">✅ All nominal</span>`;
+          alertEl.innerHTML = `<span style="color:green;">✅ All normal</span>`;
         } else {
           let log = `<strong>Alerts:</strong><ul>`;
           for (const [type, info] of Object.entries(alerts)) {

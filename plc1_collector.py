@@ -2,30 +2,18 @@ import threading
 import time
 import json
 from temp_plc import TemperaturePLC, MIN_TEMP, MAX_TEMP
+from light_plc import LightPLC, MIN_LIGHT, MAX_LIGHT  
 
-
-
-# Use thresholds from gh.py to avoid duplication
+# Thresholds
 THRESHOLDS = {
     'temp': (MIN_TEMP, MAX_TEMP),
-    #'irrigation': (MIN_MOISTURE, MAX_MOISTURE),
-   # 'light': (MIN_LIGHT, MAX_LIGHT),
-   # 'co2': (MIN_CO2, MAX_CO2),
+    'light': (MIN_LIGHT, MAX_LIGHT),
 }
 
-# Capture sensor values from each PLC
+# Store latest sensor values
 sensor_values = {
     "temp": None,
-   # "irrigation": None,
-   # "light": None,
-   # "co2": None
-}
-
-# Output dictionary
-result_data = {
-    "sensors": {},
-    "actuators": {},
-    "alerts": {}
+    "light": None,
 }
 
 # --- Sender function to collect each PLC's output ---
@@ -34,6 +22,7 @@ def get_sender(key):
         sensor_values[key] = msg
     return _send
 
+# Check for alerts based on thresholds
 def check_alerts():
     alerts = {}
     for key, val in sensor_values.items():
@@ -43,8 +32,10 @@ def check_alerts():
 
         if key == "temp":
             value = val.get("temperature")
+        elif key == "light":
+            value = val.get("light")
         else:
-            value = 0  # Default fallback for other sensor types if added later
+            value = 0  # Fallback if new sensor type added later
 
         if not (low <= value <= high):
             alerts[key] = {
@@ -55,33 +46,36 @@ def check_alerts():
     return alerts
 
 def run_once(plc):
-    plc.run(cycles=1)
+    plc.run(cycles=1)  # This does nothing but is kept for compatibility
 
 if __name__ == "__main__":
     workers = [
         TemperaturePLC(sender=get_sender("temp")),
-        #IrrigationPLC(sender=get_sender("irrigation")),
-        #LightPLC(sender=get_sender("light")),
-        #CO2PLC(sender=get_sender("co2")),
+        LightPLC(sender=get_sender("light")),
     ]
 
     while True:
+        # In case run() gets used in future
         threads = [threading.Thread(target=run_once, args=(w,)) for w in workers]
-        for t in threads: t.start()
-        for t in threads: t.join()
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
         output = {
             "sensors": {
-            "temperature": sensor_values["temp"]["temperature"] if sensor_values["temp"] else 0.0,
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
-        },
+                "temperature": sensor_values["temp"]["temperature"] if sensor_values["temp"] else 0.0,
+                "light": sensor_values["light"]["light"] if sensor_values["light"] else 0.0,
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+            },
             "actuators": {
-            "heater_pct": sensor_values["temp"]["heater_pct"] if sensor_values["temp"] else 0,
-            "cooler_pct": sensor_values["temp"]["cooler_pct"] if sensor_values["temp"] else 0,
-        },
-        "alerts": check_alerts()
+                "heater_pct": sensor_values["temp"]["heater_pct"] if sensor_values["temp"] else 0,
+                "cooler_pct": sensor_values["temp"]["cooler_pct"] if sensor_values["temp"] else 0,
+                "lamp_pct": sensor_values["light"]["lamp_pct"] if sensor_values["light"] else 0,
+                "shutter_pct": sensor_values["light"]["shutter_pct"] if sensor_values["light"] else 0,
+            },
+            "alerts": check_alerts()
         }
-
 
         print(json.dumps(output), flush=True)
         time.sleep(1)

@@ -1,98 +1,88 @@
-import time, random, datetime
-from typing import Callable
+import time
+import random
+import threading
 
-# --- comfort band (lux, PPFD, etc.) ---
-MIN_LIGHT       = 200
-MAX_LIGHT       = 350
-LIGHT_MIN_BOUND = 0
-LIGHT_MAX_BOUND = 1000
-LIGHT_INTERVAL  = 7           # seconds between PLC ticks
+# Threshold range (target light levels in lux)
+MIN_LIGHT = 400.0
+MAX_LIGHT = 600.0
 
-# --- photoperiod configuration ---
-DARK_START_HR  = 22           # 22:00 local (lights forced OFF)
-DARK_END_HR    = 6            # 06:00 local
-LONG_DAY_HOURS = 16           # desired total lit hours per 24 h
-# ----------------------------------
+# Extended simulation range (can drift beyond)
+MIN_LIGHT_EXT = 0.0
+MAX_LIGHT_EXT = 1000.0
+
+# Lux change per second
+LIGHT_CHANGE_RATE = 5.0
 
 class LightPLC:
-    """Grow-light controller with night-shutdown and long-day tracking."""
-    def __init__(self,
-                 sender: Callable[[dict], None],
-                 *,
-                 initial_light: float = (MIN_LIGHT + MAX_LIGHT) / 2,
-                 natural_drift: float = 15.0,
-                 lamp_gain_100: float = 60.0):
-        self.light  = initial_light
-        self.drift  = natural_drift
-        self.gain   = lamp_gain_100
-        self.send   = sender
-        self._lit_seconds_today   = 0
-        self._midnight_day_index  = datetime.date.today()
+    def __init__(self, sender=None):
+        self.current_light = 500.0  # ✅ Start in the middle
+        self.lamp_pct = 0           # 0–100% power for lamp
+        self.shutter_pct = 0        # 0–100% for blocking light
+        self.direction = random.choice([0, 1])  # 0 = down, 1 = up
+        self.sender = sender or (lambda data: None)
+        self.running = True
+        self.sensor_online = False
 
-    # ─── helpers ──────────────────────────────────────────────────────
-    def _clock_now(self):
-        return datetime.datetime.now()
+        threading.Thread(target=self._live_loop, daemon=True).start()
 
-    def _is_dark_window(self) -> bool:
-        hr = self._clock_now().hour
-        if DARK_START_HR < DARK_END_HR:             # same-day window
-            return DARK_START_HR <= hr < DARK_END_HR
-        else:                                       # window crosses midnight
-            return hr >= DARK_START_HR or hr < DARK_END_HR
+    def _live_loop(self):
+        time.sleep(3)  # Sensor warm-up
+        self.sensor_online = True
+        target_light = (MIN_LIGHT + MAX_LIGHT) / 2  # = 500 lux
 
-    def _reset_midnight_counter(self):
-        today = datetime.date.today()
-        if today != self._midnight_day_index:
-            self._midnight_day_index = today
-            self._lit_seconds_today  = 0
+        while self.running:
+            if self.sensor_online:
+                # ACTUATOR CONTROL: return to middle if out of range
+                if self.lamp_pct > 0:
+                    self.current_light += LIGHT_CHANGE_RATE * (self.lamp_pct / 100)
+                    if self.current_light >= target_light:
+                        self.lamp_pct = 0
+                        self.direction = random.choice([0, 1])
 
-    # ─── physics each tick ───────────────────────────────────────────
-    def _ambient_variation(self):
-        self.light += random.uniform(-self.drift, self.drift)
+                elif self.shutter_pct > 0:
+                    self.current_light -= LIGHT_CHANGE_RATE * (self.shutter_pct / 100)
+                    if self.current_light <= target_light:
+                        self.shutter_pct = 0
+                        self.direction = random.choice([0, 1])
 
-    def _apply_lamp_effect(self, pct: float):
-        self.light += (pct / 100) * self.gain
-        if pct > 0:
-            self._lit_seconds_today += LIGHT_INTERVAL
+                else:
+                    # No actuator: simulate environment drift
+                    if self.direction == 0:
+                        self.current_light -= LIGHT_CHANGE_RATE
+                    else:
+                        self.current_light += LIGHT_CHANGE_RATE
 
-    # ─── controller ──────────────────────────────────────────────────
-    def _compute_power_pct(self) -> float:
-        # 1) Absolute OFF inside dark window
-        if self._is_dark_window():
-            return 0.0
+                # OUT OF THRESHOLD: activate actuator
+                if self.current_light < MIN_LIGHT - 15:
+                    self.lamp_pct = 100
+                    self.shutter_pct = 0
+                    self.direction = None
+                elif self.current_light > MAX_LIGHT + 15:
+                    self.shutter_pct = 100
+                    self.lamp_pct = 0
+                    self.direction = None
 
-        # 2) Long-day achieved? → keep lamps off unless dangerously dim
-        lit_hours = self._lit_seconds_today / 3600
-        if lit_hours >= LONG_DAY_HOURS and self.light >= MIN_LIGHT:
-            return 0.0
+                # Clamp to sim limits
+                self.current_light = max(MIN_LIGHT_EXT, min(MAX_LIGHT_EXT, self.current_light))
 
-        # 3) Standard proportional top-up
-        if self.light < MIN_LIGHT:
-            deficit = MIN_LIGHT - self.light
-            span    = MIN_LIGHT - LIGHT_MIN_BOUND or 1
-            return min((deficit / span) * 100, 100)
+                # Send updated sensor + actuator values
+                self.sender({
+                    "light": round(self.current_light, 2),
+                    "lamp_pct": self.lamp_pct,
+                    "shutter_pct": self.shutter_pct
+                })
 
-        return 0.0
+            else:
+                # If sensor offline
+                self.sender({
+                    "light": 0.0,
+                    "lamp_pct": 0,
+                    "shutter_pct": 0
+                })
 
-    # ─── main loop ───────────────────────────────────────────────────
-    def run(self, cycles: int | None = None):
-        prev_power = 0.0
-        tick = 0
-        while cycles is None or tick < cycles:
-            self._reset_midnight_counter()
-            self._ambient_variation()
-            self._apply_lamp_effect(prev_power)
+            time.sleep(1)
 
-            # clamp
-            self.light = max(LIGHT_MIN_BOUND,
-                             min(LIGHT_MAX_BOUND, self.light))
+    def run(self, cycles=1):
+        pass  # Not used
 
-            power_pct = self._compute_power_pct()
-            self.send({
-                "light":          round(self.light, 2),
-                "grow_power_pct": round(power_pct, 2),
-            })
-
-            prev_power = power_pct
-            tick += 1
-            time.sleep(LIGHT_INTERVAL)
+__all__ = ['LightPLC', 'MIN_LIGHT', 'MAX_LIGHT', 'MIN_LIGHT_EXT', 'MAX_LIGHT_EXT']
