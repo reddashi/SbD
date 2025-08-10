@@ -65,7 +65,7 @@ class PLC1:
             # all healthy?  ➔  increment ack counter once per full set
             if all(self.ok_flags.values()):
                 self.ack_count += 1
-                print(f"[PLC1] ✅  all sensors nominal (ack_count = {self.ack_count})")
+                print(f"[PLC1] ✅  all sensors normal (ack_count = {self.ack_count})")
                 # reset flags so next disturbance must be fixed again
                 self.ok_flags = {k: False for k in self.ok_flags}
 

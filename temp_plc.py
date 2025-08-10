@@ -15,7 +15,7 @@ TEMP_CHANGE_RATE = 0.1
 
 class TemperaturePLC:
     def __init__(self, sender=None):
-        self.current_temp = 26.0  # ✅ Start in the middle
+        self.current_temp = 26.0  # Start in the middle
         self.heater_pct = 0
         self.cooler_pct = 0
         self.direction = random.choice([0, 1])  # 0 = down, 1 = up

@@ -196,14 +196,14 @@
 
         // Sensors
         document.getElementById('tempVal').innerText = s.temperature;
-        document.getElementById('humVal').innerText = s.humidity;
+        document.getElementById('humVal').innerText = s.moisture;
         document.getElementById('co2Val').innerText = s.co2;
         document.getElementById('lightVal').innerText = s.light;
         document.getElementById('timestamp').innerText = "Timestamp: " + s.timestamp;
 
         // Gauges
         document.getElementById('tempBar').style.width = (s.temperature / 50 * 100) + "%";
-        document.getElementById('humBar').style.width = (s.humidity / 100 * 100) + "%";
+        document.getElementById('humBar').style.width = (s.moisture / 100 * 100) + "%";
         document.getElementById('co2Bar').style.width = (s.co2 / 1200 * 100) + "%";
         document.getElementById('lightBar').style.width = (s.light / 1000 * 100) + "%";
 

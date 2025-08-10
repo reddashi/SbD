@@ -1,82 +1,85 @@
 import time
-from typing import Callable
+import random
+import threading
 
-# ─── user-tunable thresholds & physics constants ───
-MIN_MOISTURE        = 40     # % – lower comfort limit
-MAX_MOISTURE        = 60     # % – upper comfort limit
-MOISTURE_MIN_BOUND  = 0
-MOISTURE_MAX_BOUND  = 100
-IRRIGATION_INTERVAL = 7      # seconds between PLC ticks
-# ──────────────────────────────────────────────────
+# Thresholds for soil moisture (in %)
+MIN_MOISTURE = 30.0
+MAX_MOISTURE = 70.0
+
+# Extended moisture range (simulate drift)
+MIN_MOISTURE_EXT = 0.0
+MAX_MOISTURE_EXT = 100.0
+
+MOISTURE_CHANGE_RATE = 1.0  # % per second
 
 class IrrigationPLC:
-    """
-    Simulates soil-moisture regulation with a pump (+) and drain (−).
-    Publishes {moisture, pump_pct, drain_pct}.
-    """
-    def __init__(self,
-                 sender: Callable[[dict], None],
-                 *,
-                 initial_moisture: float = 50,
-                 dry_drift: float = 1.0,        # % lost naturally each tick
-                 irrigation_rate: float = 3.0,  # % gained at 100 % pump duty
-                 drain_rate: float = 4.0):      # % lost at 100 % drain duty
-        self.moisture       = initial_moisture
-        self.dry_drift      = dry_drift
-        self.irrigation_rate = irrigation_rate
-        self.drain_rate     = drain_rate
-        self.send           = sender
+    def __init__(self, sender=None):
+        self.current_moisture = 50.0  # Start mid-range
+        self.pump_pct = 0
+        self.drain_pct = 0
+        self.direction = random.choice([0, 1])  # 0 = drying, 1 = moistening
+        self.sender = sender or (lambda data: None)
+        self.running = True
+        self.sensor_online = False
 
-    # ─── environment physics per tick ─────────────────────────────────
-    def _evaporate(self):
-        self.moisture -= abs(self.dry_drift)
+        threading.Thread(target=self.live_loop, daemon=True).start()
 
-    def _apply_irrigation(self, pct: float):
-        self.moisture += (pct / 100) * self.irrigation_rate
+    def live_loop(self):
+        time.sleep(3)
+        self.sensor_online = True
 
-    def _apply_drain(self, pct: float):
-        self.moisture -= (pct / 100) * self.drain_rate
+        middle_moisture = (MIN_MOISTURE + MAX_MOISTURE) / 2  # Target middle
 
-    # ─── controller (decides actuator set-points) ─────────────────────
-    def _compute_actuators(self) -> tuple[float, float]:
-        if self.moisture < MIN_MOISTURE:             # too dry
-            deficit = MIN_MOISTURE - self.moisture
-            span    = MIN_MOISTURE - MOISTURE_MIN_BOUND or 1
-            pump_pct = min((deficit / span) * 100, 100)
-            return pump_pct, 0.0
+        while self.running:
+            if self.sensor_online:
+                # Apply actuator effects
+                if self.pump_pct > 0:
+                    self.current_moisture += MOISTURE_CHANGE_RATE * (self.pump_pct / 100)
+                    if self.current_moisture >= middle_moisture:
+                        self.pump_pct = 0
+                        self.direction = random.choice([0, 1])
+                elif self.drain_pct > 0:
+                    self.current_moisture -= MOISTURE_CHANGE_RATE * (self.drain_pct / 100)
+                    if self.current_moisture <= middle_moisture:
+                        self.drain_pct = 0
+                        self.direction = random.choice([0, 1])
+                else:
+                    # Drift naturally if no actuator active
+                    if self.direction is None:
+                        self.direction = random.choice([0, 1])
+                    if self.direction == 0:
+                        self.current_moisture -= MOISTURE_CHANGE_RATE
+                    else:
+                        self.current_moisture += MOISTURE_CHANGE_RATE
 
-        if self.moisture > MAX_MOISTURE:             # too wet
-            surplus = self.moisture - MAX_MOISTURE
-            span    = MOISTURE_MAX_BOUND - MAX_MOISTURE or 1
-            drain_pct = min((surplus / span) * 100, 100)
-            return 0.0, drain_pct
+                # Actuator trigger logic
+                if self.current_moisture < MIN_MOISTURE - 5:
+                    self.pump_pct = 100
+                    self.drain_pct = 0
+                    self.direction = None
+                elif self.current_moisture > MAX_MOISTURE + 5:
+                    self.pump_pct = 0
+                    self.drain_pct = 100
+                    self.direction = None
 
-        return 0.0, 0.0                              # in comfort band
+                # Clamp values
+                self.current_moisture = max(MIN_MOISTURE_EXT, min(MAX_MOISTURE_EXT, self.current_moisture))
 
-    # ─── public run loop ──────────────────────────────────────────────
-    def run(self, cycles: int | None = None):
-        count = 0
-        while cycles is None or count < cycles:
-            # 1. environment update
-            self._evaporate()
+                # Send status
+                self.sender({
+                    "moisture": round(self.current_moisture, 2),
+                    "pump_pct": self.pump_pct,
+                    "drain_pct": self.drain_pct
+                })
+            else:
+                # Sensor offline fallback
+                self.sender({
+                    "moisture": 0.0,
+                    "pump_pct": 0,
+                    "drain_pct": 0
+                })
 
-            # 2. control decision
-            pump_pct, drain_pct = self._compute_actuators()
+            time.sleep(1)
 
-            # 3. apply actuator effects *for next tick*
-            self._apply_irrigation(pump_pct)
-            self._apply_drain(drain_pct)
-
-            # 4. clamp to physical limits
-            self.moisture = max(MOISTURE_MIN_BOUND,
-                                min(MOISTURE_MAX_BOUND, self.moisture))
-
-            # 5. publish reading upstream
-            self.send({
-                "moisture":  round(self.moisture, 2),
-                "pump_pct":  round(pump_pct, 2),
-                "drain_pct": round(drain_pct, 2),
-            })
-
-            count += 1
-            time.sleep(IRRIGATION_INTERVAL)
+    def run(self, cycles=1):
+        pass

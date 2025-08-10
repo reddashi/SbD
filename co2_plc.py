@@ -1,99 +1,83 @@
-import time, datetime
-from typing import Callable
+import time
+import random
+import threading
 
-# ---------- configuration ----------
-MIN_CO2       = 800      # ppm – dose CO₂ when below this (day-time)
-MAX_CO2       = 1200     # ppm – vent when above this (any time)
-CO2_MIN_BOUND = 300
-CO2_MAX_BOUND = 2000
-CO2_INTERVAL  = 7        # seconds per control loop
-DOSING_PERIOD = 1        # dose check every N cycles (~35 s here)
-DAY_START_HR  = 6
-DAY_END_HR    = 18
-# -----------------------------------
+# Thresholds for CO2 (in ppm)
+MIN_CO2 = 350
+MAX_CO2 = 900
+
+# Extended CO2 range (simulate drift)
+MIN_CO2_EXT = 300
+MAX_CO2_EXT = 1200
+
+CO2_CHANGE_RATE = 15  # ppm per second
 
 class CO2PLC:
-    """
-    Simulates a CO₂-dosing and vent-control PLC.
-    Publishes {co2_ppm, pump_pct, vent_pct}.
-    """
-    def __init__(self,
-                 sender: Callable[[dict], None],
-                 initial_ppm: float = 900,
-                 plant_day_sink: float = 8.0,
-                 plant_night_source: float = 15.0,
-                 pump_gain_100: float = 40.0,
-                 vent_loss_100: float = 60.0,
-                 dosing_period: int = DOSING_PERIOD):
-        self.ppm        = initial_ppm
-        self.day_sink   = plant_day_sink
-        self.night_src  = plant_night_source
-        self.pump_gain  = pump_gain_100
-        self.vent_loss  = vent_loss_100
-        self.send       = sender
-        self.dosing_period = max(dosing_period, 1)
-        self._cycle        = 0
-        self._prev_pump    = 0.0
-        self._prev_vent    = 0.0
+    def __init__(self, sender=None):
+        self.current_co2 = 600  # Start mid-range
+        self.co2_pump_pct = 0
+        self.co2_vent_pct = 0
+        self.direction = random.choice([0, 1])  # 0 = dropping CO2, 1 = increasing CO2
+        self.sender = sender or (lambda data: None)
+        self.running = True
+        self.sensor_online = False
 
-    # ─── helpers ─────────────────────────────────────────────────────
-    @staticmethod
-    def _is_daytime() -> bool:
-        hr = datetime.datetime.now().hour
-        return DAY_START_HR <= hr < DAY_END_HR
+        threading.Thread(target=self.live_loop, daemon=True).start()
 
-    def _apply_plant_effect(self):
-        if self._is_daytime():
-            self.ppm -= self.day_sink
-        else:
-            self.ppm += self.night_src
+    def live_loop(self):
+        time.sleep(3)
+        self.sensor_online = True
 
-    def _apply_actuator_effect(self):
-        self.ppm += (self._prev_pump / 100) * self.pump_gain
-        self.ppm -= (self._prev_vent / 100) * self.vent_loss
+        middle_co2 = (MIN_CO2 + MAX_CO2) / 2  # Target mid CO2
 
-    def _compute_control(self) -> tuple[float, float]:
-        pump_pct = vent_pct = 0.0
+        while self.running:
+            if self.sensor_online:
+                # Actuator effects
+                if self.co2_pump_pct > 0:
+                    self.current_co2 += CO2_CHANGE_RATE * (self.co2_pump_pct / 100)
+                    if self.current_co2 >= middle_co2:
+                        self.co2_pump_pct = 0
+                        self.direction = random.choice([0, 1])
+                elif self.co2_vent_pct > 0:
+                    self.current_co2 -= CO2_CHANGE_RATE * (self.co2_vent_pct / 100)
+                    if self.current_co2 <= middle_co2:
+                        self.co2_vent_pct = 0
+                        self.direction = random.choice([0, 1])
+                else:
+                    # Natural drift
+                    if self.direction is None:
+                        self.direction = random.choice([0, 1])
+                    if self.direction == 0:
+                        self.current_co2 -= CO2_CHANGE_RATE
+                    else:
+                        self.current_co2 += CO2_CHANGE_RATE
 
-        # Venting priority if CO₂ too high
-        if self.ppm > MAX_CO2:
-            excess   = self.ppm - MAX_CO2
-            span     = CO2_MAX_BOUND - MAX_CO2 or 1
-            vent_pct = min((excess / span) * 100, 100)
-            return 0.0, vent_pct
+                # Actuator trigger
+                if self.current_co2 < MIN_CO2 - 45:
+                    self.co2_pump_pct = 100
+                    self.co2_vent_pct = 0
+                    self.direction = None
+                elif self.current_co2 > MAX_CO2 + 45:
+                    self.co2_pump_pct = 0
+                    self.co2_vent_pct = 100
+                    self.direction = None
 
-        # Dosing allowed only during daylight & on dosing-period ticks
-        if self._is_daytime() and self._cycle % self.dosing_period == 0 \
-                               and self.ppm < MIN_CO2:
-            deficit  = MIN_CO2 - self.ppm
-            span     = MIN_CO2 - CO2_MIN_BOUND or 1
-            pump_pct = min((deficit / span) * 100, 100)
+                # Clamp
+                self.current_co2 = max(MIN_CO2_EXT, min(MAX_CO2_EXT, self.current_co2))
 
-        return pump_pct, 0.0
-    # -----------------------------------------------------------------
+                self.sender({
+                    "co2": round(self.current_co2, 2),
+                    "co2_pump_pct": self.co2_pump_pct,
+                    "co2_vent_pct": self.co2_vent_pct
+                })
+            else:
+                self.sender({
+                    "co2": 0.0,
+                    "co2_pump_pct": 0,
+                    "co2_vent_pct": 0
+                })
 
-    def run(self, cycles: int | None = None):
-        while cycles is None or self._cycle < cycles:
-            # 1. environment dynamics
-            self._apply_plant_effect()
-            self._apply_actuator_effect()
+            time.sleep(1)
 
-            # keep within physical bounds
-            self.ppm = max(CO2_MIN_BOUND, min(CO2_MAX_BOUND, self.ppm))
-
-            # 2. control decision
-            pump_pct, vent_pct = self._compute_control()
-
-            # 3. publish reading
-            self.send({
-                "co2_ppm":   round(self.ppm, 1),
-                "pump_pct":  round(pump_pct, 2),
-                "vent_pct":  round(vent_pct, 2),
-            })
-
-            # 4. remember actuators for next tick
-            self._prev_pump = pump_pct
-            self._prev_vent = vent_pct
-
-            self._cycle += 1
-            time.sleep(CO2_INTERVAL)
+    def run(self, cycles=1):
+        pass
