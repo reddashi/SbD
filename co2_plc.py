@@ -3,18 +3,18 @@ import random
 import threading
 
 # Thresholds for CO2 (in ppm)
-MIN_CO2 = 350
-MAX_CO2 = 900
+MIN_CO2 = 400
+MAX_CO2 = 700
 
 # Extended CO2 range (simulate drift)
-MIN_CO2_EXT = 300
-MAX_CO2_EXT = 1200
+MIN_CO2_EXT = 0
+MAX_CO2_EXT = 1000
 
-CO2_CHANGE_RATE = 15  # ppm per second
+CO2_CHANGE_RATE = 30  # ppm per second
 
 class CO2PLC:
     def __init__(self, sender=None):
-        self.current_co2 = 600  # Start mid-range
+        self.current_co2 = 550  # Start mid-range
         self.co2_pump_pct = 0
         self.co2_vent_pct = 0
         self.direction = random.choice([0, 1])  # 0 = dropping CO2, 1 = increasing CO2
@@ -25,7 +25,7 @@ class CO2PLC:
         threading.Thread(target=self.live_loop, daemon=True).start()
 
     def live_loop(self):
-        time.sleep(3)
+        time.sleep(0.1)
         self.sensor_online = True
 
         middle_co2 = (MIN_CO2 + MAX_CO2) / 2  # Target mid CO2
@@ -34,12 +34,12 @@ class CO2PLC:
             if self.sensor_online:
                 # Actuator effects
                 if self.co2_pump_pct > 0:
-                    self.current_co2 += CO2_CHANGE_RATE * (self.co2_pump_pct / 100)
+                    self.current_co2 += CO2_CHANGE_RATE 
                     if self.current_co2 >= middle_co2:
                         self.co2_pump_pct = 0
                         self.direction = random.choice([0, 1])
                 elif self.co2_vent_pct > 0:
-                    self.current_co2 -= CO2_CHANGE_RATE * (self.co2_vent_pct / 100)
+                    self.current_co2 -= CO2_CHANGE_RATE
                     if self.current_co2 <= middle_co2:
                         self.co2_vent_pct = 0
                         self.direction = random.choice([0, 1])
@@ -53,13 +53,15 @@ class CO2PLC:
                         self.current_co2 += CO2_CHANGE_RATE
 
                 # Actuator trigger
-                if self.current_co2 < MIN_CO2 - 45:
-                    self.co2_pump_pct = 100
+                if self.current_co2 < MIN_CO2 - 30:
+                    diff = (MIN_CO2 - self.current_co2)
+                    self.co2_pump_pct = min(100, diff - 25)
                     self.co2_vent_pct = 0
                     self.direction = None
-                elif self.current_co2 > MAX_CO2 + 45:
+                elif self.current_co2 > MAX_CO2 + 30:
+                    diff = self.current_co2 - (MAX_CO2)
                     self.co2_pump_pct = 0
-                    self.co2_vent_pct = 100
+                    self.co2_vent_pct = min(100, diff - 25)
                     self.direction = None
 
                 # Clamp

@@ -24,8 +24,28 @@ class IrrigationPLC:
 
         threading.Thread(target=self.live_loop, daemon=True).start()
 
+    def moisture_to_power_smooth(moisture, max_val, min_val):
+        target = (min_val + max_val) / 2.0  # midpoint
+
+        # Too wet -> drain
+        if moisture > max_val:
+            diff = moisture - target
+            scale = max_val - target  # how far from target to max_val
+            pct = 100 * math.exp(- (diff - scale) / scale)  # smooth drop
+            return -min(100, max(0, round(pct)))
+
+        # Too dry -> pump
+        elif moisture < min_val:
+            diff = target - moisture
+            scale = target - min_val
+            pct = 100 * math.exp(- (diff - scale) / scale)
+            return min(100, max(0, round(pct)))
+
+        # In range
+        return 0
+
     def live_loop(self):
-        time.sleep(3)
+        time.sleep(0.1)
         self.sensor_online = True
 
         middle_moisture = (MIN_MOISTURE + MAX_MOISTURE) / 2  # Target middle
@@ -34,12 +54,12 @@ class IrrigationPLC:
             if self.sensor_online:
                 # Apply actuator effects
                 if self.pump_pct > 0:
-                    self.current_moisture += MOISTURE_CHANGE_RATE * (self.pump_pct / 100)
+                    self.current_moisture += MOISTURE_CHANGE_RATE 
                     if self.current_moisture >= middle_moisture:
                         self.pump_pct = 0
                         self.direction = random.choice([0, 1])
                 elif self.drain_pct > 0:
-                    self.current_moisture -= MOISTURE_CHANGE_RATE * (self.drain_pct / 100)
+                    self.current_moisture -= MOISTURE_CHANGE_RATE 
                     if self.current_moisture <= middle_moisture:
                         self.drain_pct = 0
                         self.direction = random.choice([0, 1])
@@ -54,12 +74,16 @@ class IrrigationPLC:
 
                 # Actuator trigger logic
                 if self.current_moisture < MIN_MOISTURE - 5:
-                    self.pump_pct = 100
+                     # Calculate proportional power based on how far from MIN_MOISTURE
+                    diff = (MIN_MOISTURE - self.current_moisture)
+                    self.pump_pct = min(100, diff + 29)  # each 0.1 difference adds ~1% power
                     self.drain_pct = 0
                     self.direction = None
                 elif self.current_moisture > MAX_MOISTURE + 5:
+                     # Calculate proportional power based on how far from MAX_MOISTURE
+                    diff = self.current_moisture - (MAX_MOISTURE)
                     self.pump_pct = 0
-                    self.drain_pct = 100
+                    self.drain_pct = min(100, diff + 29)
                     self.direction = None
 
                 # Clamp values

@@ -1,110 +1,18 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <title>Greenhouse PLC Dashboard</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #eef2f3;
-      display: flex;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .layout {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      grid-template-rows: auto auto;
-      gap: 30px;
-      max-width: 1200px;
-      width: 100%;
-    }
-
-    .plc-box {
-      background: #fff;
-      border: 2px solid #888;
-      border-radius: 10px;
-      box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-      padding: 15px;
-      font-weight: bold;
-    }
-
-    h3 {
-      margin-top: 0;
-    }
-
-    .gauge {
-      margin: 8px 0;
-      font-size: 0.9em;
-    }
-
-    .bar {
-      height: 14px;
-      background: #ccc;
-      border-radius: 5px;
-      overflow: hidden;
-    }
-
-    .fill {
-      height: 100%;
-      transition: width 0.3s ease;
-    }
-
-    .temp .fill { background: #e74c3c; }
-    .hum .fill { background: #3498db; }
-    .co2 .fill { background: #2ecc71; }
-    .light .fill { background: #f1c40f; }
-
-    .actuator {
-      font-size: 0.85em;
-      margin: 4px 0;
-      color: #444;
-    }
-
-    .actuator .status {
-      font-weight: normal;
-      padding-left: 5px;
-    }
-
-    .status.active {
-      color: red;
-    }
-
-    .status.idle {
-      color: green;
-    }
-
-    .act-bar {
-      height: 8px;
-      background: #ddd;
-      border-radius: 4px;
-      margin-top: 3px;
-    }
-
-    .act-fill {
-      height: 100%;
-      transition: width 0.3s ease;
-      background: #888;
-    }
-
-    .alert-log {
-      margin-top: 10px;
-      font-size: 0.85em;
-      background: #fff3e0;
-      padding: 10px;
-      border-radius: 5px;
-      border-left: 4px solid #ffa726;
-    }
-
-    .timestamp {
-      font-size: 0.85em;
-      margin-top: 5px;
-      color: #555;
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
+<nav>
+  <a id="navDashboard" class="active" href="index.html">📊 Dashboard</a>
+  <a id="navControls" href="controls.html">⚙️ Control Panel</a>
+</nav>
+
+<!-- Dashboard Page -->
+<div id="dashboardPage" class="page active">
   <div class="layout">
 
     <!-- Temperature -->
@@ -114,12 +22,10 @@
         Temp: <span id="tempVal">--</span> °C
         <div class="bar"><div id="tempBar" class="fill"></div></div>
       </div>
-      <div class="actuator">Heater: <span id="heaterPct">--</span>% <span id="heaterStatus" class="status">✅</span>
-        <div class="act-bar"><div id="heaterGauge" class="act-fill"></div></div>
-      </div>
-      <div class="actuator">Cooler: <span id="coolerPct">--</span>% <span id="coolerStatus" class="status">✅</span>
-        <div class="act-bar"><div id="coolerGauge" class="act-fill"></div></div>
-      </div>
+      <div class="actuator">Heater: <span id="heaterPct">--</span>% <span id="heaterStatus" class="status">✅</span></div>
+      <div class="act-bar"><div id="heaterGauge" class="act-fill"></div></div>
+      <div class="actuator">Cooler: <span id="coolerPct">--</span>% <span id="coolerStatus" class="status">✅</span></div>
+      <div class="act-bar"><div id="coolerGauge" class="act-fill"></div></div>
     </div>
 
     <!-- Irrigation -->
@@ -129,12 +35,10 @@
         Moisture: <span id="humVal">--</span> %
         <div class="bar"><div id="humBar" class="fill"></div></div>
       </div>
-      <div class="actuator">Pump: <span id="pumpPct">--</span>% <span id="pumpStatus" class="status">✅</span>
-        <div class="act-bar"><div id="pumpGauge" class="act-fill"></div></div>
-      </div>
-      <div class="actuator">Drain: <span id="drainPct">--</span>% <span id="drainStatus" class="status">✅</span>
-        <div class="act-bar"><div id="drainGauge" class="act-fill"></div></div>
-      </div>
+      <div class="actuator">Pump: <span id="pumpPct">--</span>% <span id="pumpStatus" class="status">✅</span></div>
+      <div class="act-bar"><div id="pumpGauge" class="act-fill"></div></div>
+      <div class="actuator">Drain: <span id="drainPct">--</span>% <span id="drainStatus" class="status">✅</span></div>
+      <div class="act-bar"><div id="drainGauge" class="act-fill"></div></div>
     </div>
 
     <!-- Light -->
@@ -144,14 +48,11 @@
         Light: <span id="lightVal">--</span> lux
         <div class="bar"><div id="lightBar" class="fill"></div></div>
       </div>
-      <div class="actuator">Lamp Light: <span id="lampPct">--</span>% <span id="lampStatus" class="status">✅</span>
-        <div class="act-bar"><div id="lampGauge" class="act-fill"></div></div>
-      </div>
-      <div class="actuator">Shutter: <span id="shutterPct">--</span>% <span id="shutterStatus" class="status">✅</span>
-        <div class="act-bar"><div id="shutterGauge" class="act-fill"></div></div>
-      </div>
+      <div class="actuator">Lamp Light: <span id="lampPct">--</span>% <span id="lampStatus" class="status">✅</span></div>
+      <div class="act-bar"><div id="lampGauge" class="act-fill"></div></div>
+      <div class="actuator">Shutter: <span id="shutterPct">--</span>% <span id="shutterStatus" class="status">✅</span></div>
+      <div class="act-bar"><div id="shutterGauge" class="act-fill"></div></div>
     </div>
-
 
     <!-- CO2 -->
     <div class="plc-box">
@@ -160,92 +61,28 @@
         CO₂: <span id="co2Val">--</span> ppm
         <div class="bar"><div id="co2Bar" class="fill"></div></div>
       </div>
-      <div class="actuator">CO₂ Pump: <span id="co2PumpPct">--</span>% <span id="co2PumpStatus" class="status">✅</span>
-        <div class="act-bar"><div id="co2PumpGauge" class="act-fill"></div></div>
-      </div>
-      <div class="actuator">Vent: <span id="co2VentPct">--</span>% <span id="co2VentStatus" class="status">✅</span>
-        <div class="act-bar"><div id="co2VentGauge" class="act-fill"></div></div>
-      </div>
+      <div class="actuator">CO₂ Pump: <span id="co2PumpPct">--</span>% <span id="co2PumpStatus" class="status">✅</span></div>
+      <div class="act-bar"><div id="co2PumpGauge" class="act-fill"></div></div>
+      <div class="actuator">Vent: <span id="co2VentPct">--</span>% <span id="co2VentStatus" class="status">✅</span></div>
+      <div class="act-bar"><div id="co2VentGauge" class="act-fill"></div></div>
     </div>
 
     <!-- PLC 1 Collector -->
-    <div class="plc-box" style="grid-column: 1 / span 2;">
+    <div class="plc-box collector">
       <h3>📦 PLC 1 – Collector</h3>
       <div class="timestamp" id="timestamp">Timestamp: --</div>
       <div class="alert-log" id="alerts">Alerts: None</div>
     </div>
   </div>
+</div>
 
-  <script>
-    function setActuator(id, value) {
-      const pct = parseFloat(value);
-      const status = document.getElementById(id + 'Status');
-      const gauge = document.getElementById(id + 'Gauge');
-
-      status.innerText = pct > 0 ? '⚙️' : '✅';
-      status.className = "status " + (pct > 0 ? "active" : "idle");
-      gauge.style.width = pct + "%";
-    }
-
-    async function update() {
-      try {
-        const data = await window.plcAPI.getSensorData();
-        const s = data.sensors;
-        const a = data.actuators;
-        const alerts = data.alerts;
-
-        // Sensors
-        document.getElementById('tempVal').innerText = s.temperature;
-        document.getElementById('humVal').innerText = s.moisture;
-        document.getElementById('co2Val').innerText = s.co2;
-        document.getElementById('lightVal').innerText = s.light;
-        document.getElementById('timestamp').innerText = "Timestamp: " + s.timestamp;
-
-        // Gauges
-        document.getElementById('tempBar').style.width = (s.temperature / 50 * 100) + "%";
-        document.getElementById('humBar').style.width = (s.moisture / 100 * 100) + "%";
-        document.getElementById('co2Bar').style.width = (s.co2 / 1200 * 100) + "%";
-        document.getElementById('lightBar').style.width = (s.light / 1000 * 100) + "%";
-
-        // Actuator values
-        document.getElementById('heaterPct').innerText = a.heater_pct;
-        document.getElementById('coolerPct').innerText = a.cooler_pct;
-        document.getElementById('pumpPct').innerText = a.pump_pct;
-        document.getElementById('drainPct').innerText = a.drain_pct;
-        document.getElementById('lampPct').innerText = a.lamp_pct;
-        document.getElementById('shutterPct').innerText = a.shutter_pct;
-        document.getElementById('co2PumpPct').innerText = a.co2_pump_pct;
-        document.getElementById('co2VentPct').innerText = a.co2_vent_pct;
-
-        setActuator("heater", a.heater_pct);
-        setActuator("cooler", a.cooler_pct);
-        setActuator("pump", a.pump_pct);
-        setActuator("drain", a.drain_pct);
-        setActuator("lamp", a.lamp_pct);
-        setActuator("shutter", a.shutter_pct);
-        setActuator("co2Pump", a.co2_pump_pct);
-        setActuator("co2Vent", a.co2_vent_pct);
-
-        // Alerts
-        const alertEl = document.getElementById('alerts');
-        if (Object.keys(alerts).length === 0) {
-          alertEl.innerHTML = `<span style="color:green;">✅ All normal</span>`;
-        } else {
-          let log = `<strong>Alerts:</strong><ul>`;
-          for (const [type, info] of Object.entries(alerts)) {
-            log += `<li><strong>${type.toUpperCase()}</strong>: ${info.value} → ${info.status}</li>`;
-          }
-          log += "</ul>";
-          alertEl.innerHTML = log;
-        }
-
-      } catch (err) {
-        document.getElementById('alerts').innerText = "Error: " + err;
-      }
-    }
-
+<script src="scripts.js"></script>
+<script>
+  // Only run live update on dashboard page
+  if (document.getElementById('dashboardPage')) {
     update();
-    setInterval(update, 1000);
-  </script>
+    setInterval(update, 100);
+  }
+</script>
 </body>
 </html>

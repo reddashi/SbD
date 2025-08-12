@@ -26,7 +26,7 @@ class TemperaturePLC:
         threading.Thread(target=self._live_loop, daemon=True).start()
 
     def _live_loop(self):
-        time.sleep(3)  # Sensor warm-up
+        time.sleep(0.1)  # Sensor warm-up
         self.sensor_online = True
         target_temp = (MIN_TEMP + MAX_TEMP) / 2  # = 26.0°C
 
@@ -34,13 +34,13 @@ class TemperaturePLC:
             if self.sensor_online:
                 # ACTUATOR CONTROL: return to middle if out of range
                 if self.heater_pct > 0:
-                    self.current_temp += TEMP_CHANGE_RATE * (self.heater_pct / 100)
+                    self.current_temp += TEMP_CHANGE_RATE 
                     if self.current_temp >= target_temp:
                         self.heater_pct = 0
                         self.direction = random.choice([0, 1])
 
                 elif self.cooler_pct > 0:
-                    self.current_temp -= TEMP_CHANGE_RATE * (self.cooler_pct / 100)
+                    self.current_temp -= TEMP_CHANGE_RATE 
                     if self.current_temp <= target_temp:
                         self.cooler_pct = 0
                         self.direction = random.choice([0, 1])
@@ -53,12 +53,14 @@ class TemperaturePLC:
                         self.current_temp += TEMP_CHANGE_RATE
 
                 # OUT OF THRESHOLD: activate actuator
-                if self.current_temp < MIN_TEMP - 0.2 :
-                    self.heater_pct = 100
+                if self.current_temp < MIN_TEMP - 0.5 :
+                    diff = (MIN_TEMP - self.current_temp)
+                    self.heater_pct = min(100, diff + 34.5 )
                     self.cooler_pct = 0
                     self.direction = None
-                elif self.current_temp > MAX_TEMP + 0.2 :
-                    self.cooler_pct = 100
+                elif self.current_temp > MAX_TEMP + 0.5 :
+                    diff = self.current_temp - (MAX_TEMP)
+                    self.cooler_pct = min(100, diff + 34.5 )
                     self.heater_pct = 0
                     self.direction = None
 
@@ -68,8 +70,8 @@ class TemperaturePLC:
                 # Send updated sensor + actuator values
                 self.sender({
                     "temperature": round(self.current_temp, 2),
-                    "heater_pct": self.heater_pct,
-                    "cooler_pct": self.cooler_pct
+                    "heater_pct": round(self.heater_pct, 1),
+                    "cooler_pct": round(self.cooler_pct, 1)
                 })
 
             else:
