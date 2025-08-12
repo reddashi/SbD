@@ -20,11 +20,63 @@ if (simInputs.temperature) {
   });
 }
 
+// ===== NEW: Override system =====
+const overrides = {
+  temperature: null,
+  moisture: null,
+  light: null,
+  co2: null
+};
+
+function applyOverride(type, value) {
+  overrides[type] = value;
+  localStorage.setItem('overrides', JSON.stringify(overrides));
+  document.getElementById(type + 'OverrideStatus').innerText = `Override set to ${value}`;
+}
+
+function resetOverride(type) {
+  overrides[type] = null;
+  localStorage.setItem('overrides', JSON.stringify(overrides));
+  document.getElementById(type + 'OverrideStatus').innerText = "No override set.";
+}
+
+// Restore overrides from localStorage
+const savedOverrides = JSON.parse(localStorage.getItem('overrides') || '{}');
+Object.assign(overrides, savedOverrides);
+
+// Bind override buttons
+function bindOverrideControls(type) {
+  const applyBtn = document.getElementById(`apply${type}OverrideBtn`);
+  const resetBtn = document.getElementById(`reset${type}OverrideBtn`);
+  const input = document.getElementById(`${type.toLowerCase()}OverrideInput`);
+
+  if (applyBtn && resetBtn && input) {
+    applyBtn.addEventListener('click', () => {
+      if (input.value) {
+        applyOverride(type.toLowerCase(), parseFloat(input.value));
+      }
+    });
+    resetBtn.addEventListener('click', () => resetOverride(type.toLowerCase()));
+  }
+}
+
+bindOverrideControls('Temp');
+bindOverrideControls('Hum');
+bindOverrideControls('Light');
+bindOverrideControls('Co2');
+// ===== End override system =====
+
 // Dashboard update functions
 function updateDashboard(data) {
   const s = data.sensors;
   const a = data.actuators;
   const alerts = data.alerts || {};
+
+  // Apply overrides if set
+  if (overrides.temperature !== null) s.temperature = overrides.temperature;
+  if (overrides.moisture !== null) s.moisture = overrides.moisture;
+  if (overrides.light !== null) s.light = overrides.light;
+  if (overrides.co2 !== null) s.co2 = overrides.co2;
 
   // Sensors
   document.getElementById('tempVal').innerText = s.temperature;
@@ -36,7 +88,7 @@ function updateDashboard(data) {
   // Gauges
   document.getElementById('tempBar').style.width = (s.temperature / 50 * 100) + "%";
   document.getElementById('humBar').style.width = (s.moisture / 100 * 100) + "%";
-  document.getElementById('co2Bar').style.width = (s.co2 / 1200 * 100) + "%";
+  document.getElementById('co2Bar').style.width = (s.co2 / 1000 * 100) + "%";
   document.getElementById('lightBar').style.width = (s.light / 1000 * 100) + "%";
 
   // Actuator values
@@ -119,3 +171,109 @@ async function update() {
     if (alertEl) alertEl.innerText = "Error: " + err;
   }
 }
+async function update() {
+  try {
+    let data;
+    const storedSim = localStorage.getItem('simulatedData');
+    if (storedSim) {
+      data = JSON.parse(storedSim);
+    } else {
+      data = await window.plcAPI.getSensorData();
+    }
+
+    // Apply overrides
+    const overrides = JSON.parse(localStorage.getItem('sensorOverrides') || '{}');
+    if (overrides.temperature !== undefined) data.sensors.temperature = overrides.temperature;
+    if (overrides.moisture !== undefined) data.sensors.moisture = overrides.moisture;
+    if (overrides.light !== undefined) data.sensors.light = overrides.light;
+    if (overrides.co2 !== undefined) data.sensors.co2 = overrides.co2;
+
+    updateDashboard(data);
+  } catch (err) {
+    const alertEl = document.getElementById('alerts');
+    if (alertEl) alertEl.innerText = "Error: " + err;
+  }
+}
+
+// ---- Override controls ----
+
+// Temp override
+document.getElementById('applyTempOverrideBtn').addEventListener('click', () => {
+  const val = parseFloat(document.getElementById('tempOverrideInput').value);
+  if (!isNaN(val)) {
+    const overrides = JSON.parse(localStorage.getItem('sensorOverrides') || '{}');
+    overrides.temperature = val;
+    localStorage.setItem('sensorOverrides', JSON.stringify(overrides));
+    document.getElementById('tempOverrideStatus').innerText = `Override set to ${val}°C`;
+
+    // SEND override to backend
+    window.plcAPI.sendOverride('temperature', val);
+  }
+});
+
+document.getElementById('resetTempOverrideBtn').addEventListener('click', () => {
+  const overrides = JSON.parse(localStorage.getItem('sensorOverrides') || '{}');
+  delete overrides.temperature;
+  localStorage.setItem('sensorOverrides', JSON.stringify(overrides));
+  document.getElementById('tempOverrideStatus').innerText = "No override set.";
+
+  // CLEAR override in backend
+  window.plcAPI.clearOverride('temperature');
+});
+
+// Repeat similarly for moisture (irrigation), light, and co2:
+
+document.getElementById('applyHumOverrideBtn').addEventListener('click', () => {
+  const val = parseFloat(document.getElementById('humOverrideInput').value);
+  if (!isNaN(val)) {
+    const overrides = JSON.parse(localStorage.getItem('sensorOverrides') || '{}');
+    overrides.moisture = val;
+    localStorage.setItem('sensorOverrides', JSON.stringify(overrides));
+    document.getElementById('humOverrideStatus').innerText = `Override set to ${val}%`;
+    window.plcAPI.sendOverride('moisture', val);  // changed from 'irrigation' to 'moisture'
+  }
+});
+
+document.getElementById('resetHumOverrideBtn').addEventListener('click', () => {
+  const overrides = JSON.parse(localStorage.getItem('sensorOverrides') || '{}');
+  delete overrides.moisture;
+  localStorage.setItem('sensorOverrides', JSON.stringify(overrides));
+  document.getElementById('humOverrideStatus').innerText = "No override set.";
+  window.plcAPI.clearOverride('moisture');  // changed from 'irrigation' to 'moisture'
+});
+
+document.getElementById('applyLightOverrideBtn').addEventListener('click', () => {
+  const val = parseFloat(document.getElementById('lightOverrideInput').value);
+  if (!isNaN(val)) {
+    const overrides = JSON.parse(localStorage.getItem('sensorOverrides') || '{}');
+    overrides.light = val;
+    localStorage.setItem('sensorOverrides', JSON.stringify(overrides));
+    document.getElementById('lightOverrideStatus').innerText = `Override set to ${val} lux`;
+    window.plcAPI.sendOverride('light', val);
+  }
+});
+document.getElementById('resetLightOverrideBtn').addEventListener('click', () => {
+  const overrides = JSON.parse(localStorage.getItem('sensorOverrides') || '{}');
+  delete overrides.light;
+  localStorage.setItem('sensorOverrides', JSON.stringify(overrides));
+  document.getElementById('lightOverrideStatus').innerText = "No override set.";
+  window.plcAPI.clearOverride('light');
+});
+
+document.getElementById('applyCo2OverrideBtn').addEventListener('click', () => {
+  const val = parseFloat(document.getElementById('co2OverrideInput').value);
+  if (!isNaN(val)) {
+    const overrides = JSON.parse(localStorage.getItem('sensorOverrides') || '{}');
+    overrides.co2 = val;
+    localStorage.setItem('sensorOverrides', JSON.stringify(overrides));
+    document.getElementById('co2OverrideStatus').innerText = `Override set to ${val} ppm`;
+    window.plcAPI.sendOverride('co2', val);
+  }
+});
+document.getElementById('resetCo2OverrideBtn').addEventListener('click', () => {
+  const overrides = JSON.parse(localStorage.getItem('sensorOverrides') || '{}');
+  delete overrides.co2;
+  localStorage.setItem('sensorOverrides', JSON.stringify(overrides));
+  document.getElementById('co2OverrideStatus').innerText = "No override set.";
+  window.plcAPI.clearOverride('co2');
+});

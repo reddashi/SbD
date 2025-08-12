@@ -36,7 +36,21 @@ app.whenReady().then(() => {
     console.error("PY ERROR:", data.toString());
   });
 
+  // Send data to renderer
   ipcMain.handle('get-sensor-data', async () => latestData);
+
+  // Handle overrides
+  ipcMain.on('override-sensor', (event, { sensor, value }) => {
+    if (py) {
+      py.stdin.write(JSON.stringify({ type: 'override', sensor, value }) + '\n');
+    }
+  });
+
+  ipcMain.on('clear-override', (event, { sensor }) => {
+    if (py) {
+      py.stdin.write(JSON.stringify({ type: 'clear_override', sensor }) + '\n');
+    }
+  });
 
   createWindow();
 });

@@ -139,6 +139,8 @@ h3 {
 .alert-log {
   margin-top: 10px;
   font-size: 0.85em;
+  height: 150px;           /* fixed height */
+  width: 100%;            /* full width */
   background: #fff3e0;
   padding: 10px;
   border-radius: 5px;

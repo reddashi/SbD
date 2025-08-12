@@ -13,7 +13,7 @@ MAX_CO2_EXT = 1000
 CO2_CHANGE_RATE = 30  # ppm per second
 
 class CO2PLC:
-    def __init__(self, sender=None):
+    def __init__(self, sender=None, overrides=None):
         self.current_co2 = 550  # Start mid-range
         self.co2_pump_pct = 0
         self.co2_vent_pct = 0
@@ -21,6 +21,7 @@ class CO2PLC:
         self.sender = sender or (lambda data: None)
         self.running = True
         self.sensor_online = False
+        self.overrides = overrides if overrides is not None else {}
 
         threading.Thread(target=self.live_loop, daemon=True).start()
 
@@ -32,25 +33,29 @@ class CO2PLC:
 
         while self.running:
             if self.sensor_online:
-                # Actuator effects
-                if self.co2_pump_pct > 0:
-                    self.current_co2 += CO2_CHANGE_RATE 
-                    if self.current_co2 >= middle_co2:
-                        self.co2_pump_pct = 0
-                        self.direction = random.choice([0, 1])
-                elif self.co2_vent_pct > 0:
-                    self.current_co2 -= CO2_CHANGE_RATE
-                    if self.current_co2 <= middle_co2:
-                        self.co2_vent_pct = 0
-                        self.direction = random.choice([0, 1])
+                # Apply override if exists
+                if "co2" in self.overrides:
+                    self.current_co2 = float(self.overrides["co2"])
                 else:
-                    # Natural drift
-                    if self.direction is None:
-                        self.direction = random.choice([0, 1])
-                    if self.direction == 0:
+                    # Actuator effects
+                    if self.co2_pump_pct > 0:
+                        self.current_co2 += CO2_CHANGE_RATE 
+                        if self.current_co2 >= middle_co2:
+                            self.co2_pump_pct = 0
+                            self.direction = random.choice([0, 1])
+                    elif self.co2_vent_pct > 0:
                         self.current_co2 -= CO2_CHANGE_RATE
+                        if self.current_co2 <= middle_co2:
+                            self.co2_vent_pct = 0
+                            self.direction = random.choice([0, 1])
                     else:
-                        self.current_co2 += CO2_CHANGE_RATE
+                        # Natural drift
+                        if self.direction is None:
+                            self.direction = random.choice([0, 1])
+                        if self.direction == 0:
+                            self.current_co2 -= CO2_CHANGE_RATE
+                        else:
+                            self.current_co2 += CO2_CHANGE_RATE
 
                 # Actuator trigger
                 if self.current_co2 < MIN_CO2 - 30:

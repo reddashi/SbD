@@ -1,6 +1,8 @@
 import threading
 import time
 import json
+import sys
+import queue
 
 from temp_plc import TemperaturePLC, MIN_TEMP, MAX_TEMP
 from light_plc import LightPLC, MIN_LIGHT, MAX_LIGHT
@@ -23,11 +25,27 @@ sensor_values = {
     "co2": None,
 }
 
+# Override storage
+overrides = {}
+command_queue = queue.Queue()
+
 # Sender factory for each PLC
 def get_sender(key):
     def _send(msg):
         sensor_values[key] = msg
     return _send
+
+# Command listener for stdin
+def stdin_listener():
+    for line in sys.stdin:
+        try:
+            cmd = json.loads(line.strip())
+            if cmd["type"] == "override":
+                overrides[cmd["sensor"]] = cmd["value"]
+            elif cmd["type"] == "clear_override":
+                overrides.pop(cmd["sensor"], None)
+        except Exception as e:
+            print(f"STDIN error: {e}", file=sys.stderr)
 
 # Check sensor values vs thresholds and generate alerts
 def check_alerts():
@@ -60,14 +78,16 @@ def check_alerts():
     return alerts
 
 def run_once(plc):
-    plc.run(cycles=1)  # For compatibility, no-op in current PLC classes
+    plc.run(cycles=1)  # No-op in current PLC classes
 
 if __name__ == "__main__":
+    threading.Thread(target=stdin_listener, daemon=True).start()
+
     workers = [
-        TemperaturePLC(sender=get_sender("temp")),
-        LightPLC(sender=get_sender("light")),
-        IrrigationPLC(sender=get_sender("irrigation")),
-        CO2PLC(sender=get_sender("co2")),
+        TemperaturePLC(sender=get_sender("temp"), overrides=overrides),
+        LightPLC(sender=get_sender("light"), overrides=overrides),
+        IrrigationPLC(sender=get_sender("irrigation"), overrides=overrides),
+        CO2PLC(sender=get_sender("co2"), overrides=overrides),
     ]
 
     while True:

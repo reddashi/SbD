@@ -14,7 +14,7 @@ MAX_LIGHT_EXT = 1000.0
 LIGHT_CHANGE_RATE = 25.0
 
 class LightPLC:
-    def __init__(self, sender=None):
+    def __init__(self, sender=None, overrides=None):
         self.current_light = 500.0  # ✅ Start in the middle
         self.lamp_pct = 0           # 0–100% power for lamp
         self.shutter_pct = 0        # 0–100% for blocking light
@@ -22,6 +22,7 @@ class LightPLC:
         self.sender = sender or (lambda data: None)
         self.running = True
         self.sensor_online = False
+        self.overrides = overrides if overrides is not None else {}
 
         threading.Thread(target=self._live_loop, daemon=True).start()
 
@@ -32,26 +33,30 @@ class LightPLC:
 
         while self.running:
             if self.sensor_online:
-                # ACTUATOR CONTROL: return to middle if out of range
-                if self.lamp_pct > 0:
-                    self.current_light += LIGHT_CHANGE_RATE 
-                    if self.current_light >= target_light:
-                        self.lamp_pct = 0
-                        self.direction = random.choice([0, 1])
-
-                elif self.shutter_pct > 0:
-                    self.current_light -= LIGHT_CHANGE_RATE 
-                    if self.current_light <= target_light:
-                        self.shutter_pct = 0
-                        self.direction = random.choice([0, 1])
-
+                # Apply override if exists
+                if "light" in self.overrides:
+                    self.current_light = float(self.overrides["light"])
                 else:
-                    # No actuator: simulate environment drift
-                    if self.direction == 0:
-                        self.current_light -= LIGHT_CHANGE_RATE
+                    # ACTUATOR CONTROL: return to middle if out of range
+                    if self.lamp_pct > 0:
+                        self.current_light += LIGHT_CHANGE_RATE 
+                        if self.current_light >= target_light:
+                            self.lamp_pct = 0
+                            self.direction = random.choice([0, 1])
+
+                    elif self.shutter_pct > 0:
+                        self.current_light -= LIGHT_CHANGE_RATE 
+                        if self.current_light <= target_light:
+                            self.shutter_pct = 0
+                            self.direction = random.choice([0, 1])
+
                     else:
-                        self.current_light += LIGHT_CHANGE_RATE
-                    
+                        # No actuator: simulate environment drift
+                        if self.direction == 0:
+                            self.current_light -= LIGHT_CHANGE_RATE
+                        else:
+                            self.current_light += LIGHT_CHANGE_RATE
+                        
                 # OUT OF THRESHOLD: activate actuator
                 if self.current_light < MIN_LIGHT - 25:
                     diff = (MIN_LIGHT - self.current_light)
