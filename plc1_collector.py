@@ -3,11 +3,23 @@ import time
 import json
 import sys
 import queue
+import os
+from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 from temp_plc import TemperaturePLC, MIN_TEMP, MAX_TEMP
 from light_plc import LightPLC, MIN_LIGHT, MAX_LIGHT
 from irr_plc import IrrigationPLC, MIN_MOISTURE, MAX_MOISTURE
 from co2_plc import CO2PLC, MIN_CO2, MAX_CO2
+
+# InfluxDB setup (token from env)
+token = os.environ.get("INFLUXDB_TOKEN")
+org = "SUTD"
+bucket = "greenhouse"
+url = "http://localhost:8086"
+
+client = InfluxDBClient(url=url, token=token, org=org)
+write_api = client.write_api(write_options=SYNCHRONOUS)
 
 # Thresholds for all sensors
 THRESHOLDS = {
@@ -17,7 +29,6 @@ THRESHOLDS = {
     'co2': (MIN_CO2, MAX_CO2),
 }
 
-# Store latest sensor values from each PLC
 sensor_values = {
     "temp": None,
     "light": None,
@@ -25,17 +36,14 @@ sensor_values = {
     "co2": None,
 }
 
-# Override storage
 overrides = {}
 command_queue = queue.Queue()
 
-# Sender factory for each PLC
 def get_sender(key):
     def _send(msg):
         sensor_values[key] = msg
     return _send
 
-# Command listener for stdin
 def stdin_listener():
     for line in sys.stdin:
         try:
@@ -47,7 +55,6 @@ def stdin_listener():
         except Exception as e:
             print(f"STDIN error: {e}", file=sys.stderr)
 
-# Check sensor values vs thresholds and generate alerts
 def check_alerts():
     alerts = {}
     for key, val in sensor_values.items():
@@ -78,7 +85,7 @@ def check_alerts():
     return alerts
 
 def run_once(plc):
-    plc.run(cycles=1)  # No-op in current PLC classes
+    plc.run(cycles=1)
 
 if __name__ == "__main__":
     threading.Thread(target=stdin_listener, daemon=True).start()
@@ -117,6 +124,27 @@ if __name__ == "__main__":
             },
             "alerts": check_alerts()
         }
+
+        point = (
+            Point("greenhouse")
+            .tag("location", "greenhouse_room_1")
+            .field("temperature", float(output["sensors"]["temperature"]))
+            .field("heater_pct", float(output["actuators"]["heater_pct"]))
+            .field("cooler_pct", float(output["actuators"]["cooler_pct"]))
+            .field("light", float(output["sensors"]["light"]))
+            .field("lamp_pct", float(output["actuators"]["lamp_pct"]))
+            .field("shutter_pct", float(output["actuators"]["shutter_pct"]))
+            .field("moisture", float(output["sensors"]["moisture"]))
+            .field("pump_pct", float(output["actuators"]["pump_pct"]))
+            .field("drain_pct", float(output["actuators"]["drain_pct"]))
+            .field("co2", float(output["sensors"]["co2"]))
+            .field("co2_pump_pct", float(output["actuators"]["co2_pump_pct"]))
+            .field("co2_vent_pct", float(output["actuators"]["co2_vent_pct"]))
+            .field("alerts_count", int(len(output["alerts"])))  # <--- as int
+            .time(time.time_ns(), WritePrecision.NS)
+        )
+
+        write_api.write(bucket=bucket, org=org, record=point)
 
         print(json.dumps(output), flush=True)
         time.sleep(0.1)
