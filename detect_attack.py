@@ -1,0 +1,66 @@
+import pandas as pd
+import time
+import joblib
+from influxdb_client import InfluxDBClient
+
+clf = joblib.load("plc_detector.pkl")
+
+URL = "http://localhost:8086"
+TOKEN = "IlFwe-6RV4MhhKYaJh-zweHAvsXRCwo7cOHWI04BfFhEFhrsQB2l2hvsFDa8u7OsCZqWJ7cORiDlH100k12DbA=="
+ORG = "SUTD"
+BUCKET = "greenhouse"
+
+client = InfluxDBClient(url=URL, token=TOKEN, org=ORG)
+query_api = client.query_api()
+
+WINDOW = 10
+BATCH_SIZE = 5
+
+print("🚨 Real-time PLC Attack Detector Running...")
+
+while True:
+    try:
+        query = f'''
+        from(bucket: "{BUCKET}")
+          |> range(start: -{WINDOW}s)
+          |> filter(fn: (r) => r["_measurement"] == "greenhouse")
+          |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+        '''
+        result = query_api.query_data_frame(query)
+
+        # Flatten result
+        if isinstance(result, list):
+            dfs = [r.dropna(axis=1, how="all") for r in result if isinstance(r, pd.DataFrame) and not r.empty]
+            if len(dfs) == 0:
+                time.sleep(1)
+                continue
+            df = pd.concat(dfs, ignore_index=True)
+        else:
+            df = result.dropna(axis=1, how="all")
+
+        # Ensure required features exist
+        required_cols = ["temperature", "moisture", "co2", "light"]
+        for col in required_cols:
+            if col not in df.columns:
+                df[col] = 0  # fill missing columns with 0
+
+        X_live = df[required_cols]
+        times = df["_time"].tolist()
+
+        # Batch prediction
+        for i in range(0, len(X_live), BATCH_SIZE):
+            batch = X_live.iloc[i:i+BATCH_SIZE]
+            batch_times = times[i:i+BATCH_SIZE]
+            preds = clf.predict(batch)
+
+            for t, p in zip(batch_times, preds):
+                if p == 1:
+                    print(f"🚨 ATTACK DETECTED at {t}")
+                else:
+                    print(f"✅ Normal at {t}")
+
+        time.sleep(1)
+
+    except Exception as e:
+        print(f"⚠ Error: {e}")
+        time.sleep(2)
