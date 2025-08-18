@@ -59,7 +59,7 @@ while True:
                 else:
                     print(f"✅ Normal at {t}")
 
-        time.sleep(1)
+        time.sleep(0.1)
 
     except Exception as e:
         print(f"⚠ Error: {e}")
