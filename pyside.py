@@ -68,10 +68,10 @@ class InfluxDuplicator(QWidget):
             self._reason = "influxdb_client not installed (pip install influxdb-client)"
             return
 
-        url = os.environ.get("INFLUXDB_URL") or os.environ.get("INFLUX_URL")
-        org = os.environ.get("INFLUXDB_ORG") or os.environ.get("INFLUX_ORG")
-        bucket = os.environ.get("INFLUXDB_BUCKET") or os.environ.get("INFLUX_BUCKET")
-        token = os.environ.get("INFLUXDB_TOKEN") or os.environ.get("INFLUX_TOKEN")
+        token  = os.environ.get("INFLUXDB_TOKEN") or os.environ.get("INFLUX_TOKEN")
+        org    = os.environ.get("INFLUXDB_ORG") or os.environ.get("INFLUX_ORG") or "SUTD"
+        bucket = os.environ.get("INFLUXDB_BUCKET") or os.environ.get("INFLUX_BUCKET") or "greenhouse"
+        url    = os.environ.get("INFLUXDB_URL") or os.environ.get("INFLUX_URL") or "http://localhost:8086"
 
         if not (url and org and bucket and token):
             self._reason = "Influx env vars missing (INFLUXDB_URL/ORG/BUCKET/TOKEN)"
@@ -219,7 +219,7 @@ class PlcPanel(QGroupBox):
         self.reset_btn = QPushButton("Reset")
 
         o_row = QHBoxLayout()
-        o_row.addWidget(QLabel("Range:"))
+        o_row.addWidget(QLabel("Attack:"))
         o_row.addWidget(self.override_min)
         o_row.addWidget(self.override_max)
         o_row.addWidget(self.apply_btn)

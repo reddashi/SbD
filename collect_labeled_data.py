@@ -5,10 +5,10 @@ import os
 from influxdb_client import InfluxDBClient
 
 # ==== USER SETTINGS ====
-url = "http://localhost:8086"
-token = "IlFwe-6RV4MhhKYaJh-zweHAvsXRCwo7cOHWI04BfFhEFhrsQB2l2hvsFDa8u7OsCZqWJ7cORiDlH100k12DbA=="
-org = "SUTD"
-bucket = "greenhouse"
+token  = os.environ.get("INFLUXDB_TOKEN") or os.environ.get("INFLUX_TOKEN")
+org    = os.environ.get("INFLUXDB_ORG") or os.environ.get("INFLUX_ORG") or "SUTD"
+bucket = os.environ.get("INFLUXDB_BUCKET") or os.environ.get("INFLUX_BUCKET") or "greenhouse"
+url    = os.environ.get("INFLUXDB_URL") or os.environ.get("INFLUX_URL") or "http://localhost:8086"
 
 # ==== INPUT LABEL ====
 label = int(input("Enter label (0 = normal, 1 = attack): "))
