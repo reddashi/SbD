@@ -541,6 +541,74 @@ class LocalSubscribeTab(QWidget):
             self.tbl.setItem(i, 2, QTableWidgetItem(t))
 
 
+# ---------- Detection tab ----------
+class DetectionTab(QWidget):
+    """
+    Runs detect_attack.py in the background and streams detection results here.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        title = QLabel("Attack Detection")  # Removed emoji
+        f = title.font()
+        f.setPointSize(16)
+        f.setBold(True)
+        title.setFont(f)
+        title.setAlignment(Qt.AlignHCenter)
+
+        self.log = QTextEdit()
+        self.log.setReadOnly(True)
+
+        root = QVBoxLayout(self)
+        root.addWidget(title)
+        root.addWidget(self.log)
+
+        # --- start attack detector as subprocess ---
+        self.proc = QProcess(self)
+        self.proc.setProgram(sys.executable)
+        self.proc.setArguments(["-u", str(ROOT / "detect_attack.py")])
+        self.proc.setProcessChannelMode(QProcess.MergedChannels)
+
+        # forward env (so it has Influx credentials)
+        env = self.proc.processEnvironment()
+        for k in ("INFLUXDB_URL", "INFLUXDB_ORG", "INFLUXDB_BUCKET", "INFLUXDB_TOKEN",
+                  "INFLUX_URL", "INFLUX_ORG", "INFLUX_BUCKET", "INFLUX_TOKEN"):
+            v = os.environ.get(k)
+            if v:
+                env.insert(k, v)
+        self.proc.setProcessEnvironment(env)
+
+        self.proc.readyReadStandardOutput.connect(self._on_output)
+        self.proc.finished.connect(self._on_finished)
+        self.proc.start()
+
+    @Slot()
+    def _on_output(self):
+        while self.proc.canReadLine():
+            line = bytes(self.proc.readLine()).decode(errors="ignore").strip()
+            if line:
+                # Escape HTML characters
+                safe_line = line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                
+                if safe_line.startswith("[ATTACK]"):
+                    # color only the label
+                    html_line = safe_line.replace("[ATTACK]", '<span style="color:red;">[ATTACK]</span>', 1)
+                elif safe_line.startswith("[NORMAL]"):
+                    html_line = safe_line.replace("[NORMAL]", '<span style="color:green;">[NORMAL]</span>', 1)
+                else:
+                    html_line = safe_line
+
+                self.log.append(html_line)
+
+    @Slot(int, QProcess.ExitStatus)
+    def _on_finished(self, code, status):
+        self.log.append(f"[INFO] detect_attack.py exited (code={code}, status={status})")
+
+    def shutdown(self):
+        if self.proc and self.proc.state() == QProcess.Running:
+            self.proc.kill()
+            self.proc.waitForFinished(2000)
+
 # ---------- Main window ----------
 class MainWindow(QMainWindow):
     """Hosts tabs: Dashboard and Local Subscribe/Duplicate."""
@@ -552,9 +620,11 @@ class MainWindow(QMainWindow):
         self.dashboard = DashboardWidget()
         self.duplicator = InfluxDuplicator()
         self.subscribe = LocalSubscribeTab(self.duplicator)
+        self.detection = DetectionTab()
 
         self.tabs.addTab(self.dashboard, "Dashboard")
         self.tabs.addTab(self.subscribe, "Subscribe / Duplicate")
+        self.tabs.addTab(self.detection, "Detection")
 
         self.setCentralWidget(self.tabs)
         self.resize(1200, 800)
@@ -576,6 +646,8 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event: QCloseEvent):
         if hasattr(self, "dashboard") and isinstance(self.dashboard, DashboardWidget):
             self.dashboard.shutdown()
+        if hasattr(self, "detection") and isinstance(self.detection, DetectionTab):
+            self.detection.shutdown()
         event.accept()
 
 
