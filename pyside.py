@@ -549,7 +549,7 @@ class DetectionTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        title = QLabel("Attack Detection")  # Removed emoji
+        title = QLabel("🔍Attack Detection")  # Removed emoji
         f = title.font()
         f.setPointSize(16)
         f.setBold(True)
@@ -592,9 +592,9 @@ class DetectionTab(QWidget):
                 
                 if safe_line.startswith("[ATTACK]"):
                     # color only the label
-                    html_line = safe_line.replace("[ATTACK]", '<span style="color:red;">[ATTACK]</span>', 1)
+                    html_line = safe_line.replace("[ATTACK]", '<span style="color:red;">🚨[ATTACK]</span>', 1)
                 elif safe_line.startswith("[NORMAL]"):
-                    html_line = safe_line.replace("[NORMAL]", '<span style="color:green;">[NORMAL]</span>', 1)
+                    html_line = safe_line.replace("[NORMAL]", '<span style="color:green;">✅[NORMAL]</span>', 1)
                 else:
                     html_line = safe_line
 
