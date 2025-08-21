@@ -15,5 +15,8 @@ $env:INFLUXDB_BUCKET="your-bucket"
 $env:INFLUXDB_TOKEN="your-token"
 then run the code  python pyside.py
 
-there are 2 types of attack 1 is the override in pyside.py and the other is pushing in random values into the database influx_attack.py
+there are 2 types of attacks,
+1 is the override in pyside.py 
+2 is pushing in random values into the database influx_attack.py
 
+if you want more info, you can checkout the ppt for the details.
