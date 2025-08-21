@@ -1,0 +1,615 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+	<declaration>
+// Global variables
+int water_level;
+int temperature;
+int light_intensity;
+int co2_percentage;
+
+// Threshold constants
+const int MIN_WATER = 25, MAX_WATER = 100;
+const int MIN_TEMP = 25, MAX_TEMP = 27;
+const int MIN_LIGHT = 40, MAX_LIGHT = 80;
+const int MIN_CO2 = 30, MAX_CO2 = 60;
+
+// Communication channels
+chan req2, req3, req4, req5;  // PLC1 -&gt; PLCs
+chan ack2, ack3, ack4, ack5;  // PLCs -&gt; PLC1
+
+// Actuator command channels
+chan adj_water, adj_temp, adj_light, adj_co2;
+
+// Sensor data collection channels
+chan read_water, read_temp, read_light, read_co2;
+
+// Counter for acknowledgements
+int ack_count = 0;
+
+// Environment bounds
+const int WATER_MIN_BOUND = 0, WATER_MAX_BOUND = 100;
+const int TEMP_MIN_BOUND = 0, TEMP_MAX_BOUND = 50;
+const int LIGHT_MIN_BOUND = 0, LIGHT_MAX_BOUND = 100;
+const int CO2_MIN_BOUND = 0, CO2_MAX_BOUND = 100;
+
+// Initial sensor values (realistic starting values)
+const int INIT_WATER = 50;
+const int INIT_TEMP = 20;
+const int INIT_LIGHT = 30;
+const int INIT_CO2 = 25;
+</declaration>
+	<template>
+		<name>PLC1_EnvironmentCollector</name>
+		<declaration>
+// Local state tracking
+bool check_in_progress = true;
+</declaration>
+		<location id="id0" x="-765" y="-773">
+			<name x="-791" y="-807">Start</name>
+			<committed/>
+		</location>
+		<location id="id1" x="-926" y="-773">
+			<name x="-960" y="-807">CollectData</name>
+			<committed/>
+		</location>
+		<location id="id2" x="-1088" y="-773">
+			<committed/>
+		</location>
+		<location id="id3" x="-1207" y="-773">
+			<committed/>
+		</location>
+		<location id="id4" x="-1343" y="-773">
+			<committed/>
+		</location>
+		<location id="id5" x="-1343" y="-654">
+			<name x="-1428" y="-680">CheckData</name>
+			<committed/>
+		</location>
+		<location id="id6" x="-1343" y="-544">
+			<name x="-1428" y="-569">SendReq2</name>
+			<committed/>
+		</location>
+		<location id="id7" x="-1343" y="-459">
+			<name x="-1428" y="-476">SendReq3</name>
+			<committed/>
+		</location>
+		<location id="id8" x="-1343" y="-357">
+			<name x="-1428" y="-382">SendReq4</name>
+			<committed/>
+		</location>
+		<location id="id9" x="-1343" y="-255">
+			<name x="-1428" y="-280">SendReq5</name>
+			<committed/>
+		</location>
+		<location id="id10" x="-1118" y="-548">
+			<name x="-1139" y="-527">WaitCompletion</name>
+		</location>
+		<init ref="id0"/>
+		<transition id="id11">
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="assignment" x="-680" y="-807">water_level = INIT_WATER,
+temperature = INIT_TEMP,
+light_intensity = INIT_LIGHT,
+co2_percentage = INIT_CO2,
+check_in_progress = true,
+ack_count = 0</label>
+		</transition>
+		<transition id="id12">
+			<source ref="id1"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="-1054" y="-799">read_water!</label>
+		</transition>
+		<transition id="id13">
+			<source ref="id2"/>
+			<target ref="id3"/>
+			<label kind="synchronisation" x="-1181" y="-799">read_temp!</label>
+		</transition>
+		<transition id="id14">
+			<source ref="id3"/>
+			<target ref="id4"/>
+			<label kind="synchronisation" x="-1317" y="-799">read_light!</label>
+		</transition>
+		<transition id="id15">
+			<source ref="id4"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="-1334" y="-748">read_co2!</label>
+		</transition>
+		<transition id="id16">
+			<source ref="id5"/>
+			<target ref="id1"/>
+			<label kind="guard" x="-680" y="-578">water_level &gt;= MIN_WATER &amp;&amp; 
+water_level &lt;= MAX_WATER &amp;&amp;
+temperature &gt;= MIN_TEMP &amp;&amp; 
+temperature &lt;= MAX_TEMP &amp;&amp;
+light_intensity &gt;= MIN_LIGHT &amp;&amp; 
+light_intensity &lt;= MAX_LIGHT &amp;&amp;
+co2_percentage &gt;= MIN_CO2 &amp;&amp;
+co2_percentage &lt;= MAX_CO2</label>
+			<label kind="assignment" x="-680" y="-416">check_in_progress = false</label>
+		</transition>
+		<transition id="id17">
+			<source ref="id5"/>
+			<target ref="id6"/>
+			<label kind="guard" x="-680" y="-663">water_level &lt; MIN_WATER || water_level &gt; MAX_WATER ||
+temperature &lt; MIN_TEMP || temperature &gt; MAX_TEMP ||
+light_intensity &lt; MIN_LIGHT || light_intensity &gt; MAX_LIGHT ||
+co2_percentage &lt; MIN_CO2 || co2_percentage &gt; MAX_CO2</label>
+		</transition>
+		<transition id="id18">
+			<source ref="id6"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="-1394" y="-518">req2!</label>
+		</transition>
+		<transition id="id19">
+			<source ref="id7"/>
+			<target ref="id8"/>
+			<label kind="synchronisation" x="-1394" y="-425">req3!</label>
+		</transition>
+		<transition id="id20">
+			<source ref="id8"/>
+			<target ref="id9"/>
+			<label kind="synchronisation" x="-1394" y="-323">req4!</label>
+		</transition>
+		<transition id="id21">
+			<source ref="id9"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-1224" y="-399">req5!</label>
+			<label kind="assignment" x="-1241" y="-382">ack_count = 0</label>
+		</transition>
+		<transition id="id22">
+			<source ref="id10"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-1009" y="-607">ack2?</label>
+			<label kind="assignment" x="-1009" y="-590">ack_count++</label>
+			<nail x="-1148" y="-578"/>
+			<nail x="-1088" y="-578"/>
+		</transition>
+		<transition id="id23">
+			<source ref="id10"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-1008" y="-573">ack3?</label>
+			<label kind="assignment" x="-1008" y="-556">ack_count++</label>
+			<nail x="-1148" y="-578"/>
+			<nail x="-1088" y="-578"/>
+		</transition>
+		<transition id="id24">
+			<source ref="id10"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-1009" y="-539">ack4?</label>
+			<label kind="assignment" x="-1009" y="-522">ack_count++</label>
+			<nail x="-1148" y="-578"/>
+			<nail x="-1088" y="-578"/>
+		</transition>
+		<transition id="id25">
+			<source ref="id10"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-1009" y="-505">ack5?</label>
+			<label kind="assignment" x="-1009" y="-488">ack_count++</label>
+			<nail x="-1148" y="-578"/>
+			<nail x="-1088" y="-578"/>
+		</transition>
+		<transition id="id26">
+			<source ref="id10"/>
+			<target ref="id1"/>
+			<label kind="guard" x="-927" y="-739">ack_count == 4</label>
+			<label kind="assignment" x="-927" y="-722">check_in_progress = true</label>
+		</transition>
+	</template>
+	<template>
+		<name>PLC2_IrrigationControl</name>
+		<location id="id27" x="0" y="-136">
+			<name x="-17" y="-170">Idle</name>
+		</location>
+		<location id="id28" x="119" y="-136">
+			<name x="102" y="-170">Check</name>
+			<committed/>
+		</location>
+		<location id="id29" x="229" y="-136">
+			<name x="195" y="-170">Adjusting</name>
+		</location>
+		<location id="id30" x="340" y="-136">
+			<name x="314" y="-170">Verify</name>
+			<committed/>
+		</location>
+		<init ref="id27"/>
+		<transition id="id31">
+			<source ref="id27"/>
+			<target ref="id28"/>
+			<label kind="synchronisation" x="42" y="-136">req2?</label>
+		</transition>
+		<transition id="id32">
+			<source ref="id28"/>
+			<target ref="id27"/>
+			<label kind="guard" x="-25" y="17">water_level &gt;= MIN_WATER &amp;&amp; water_level &lt;= MAX_WATER</label>
+			<label kind="synchronisation" x="42" y="-161">ack2!</label>
+		</transition>
+		<transition id="id33">
+			<source ref="id28"/>
+			<target ref="id29"/>
+			<label kind="guard" x="-25" y="34">water_level &lt; MIN_WATER || water_level &gt; MAX_WATER</label>
+		</transition>
+		<transition id="id34">
+			<source ref="id29"/>
+			<target ref="id30"/>
+			<label kind="synchronisation" x="-25" y="51">adj_water!</label>
+		</transition>
+		<transition id="id35">
+			<source ref="id30"/>
+			<target ref="id27"/>
+			<label kind="guard" x="-25" y="85">water_level &gt;= MIN_WATER &amp;&amp; water_level &lt;= MAX_WATER</label>
+			<label kind="synchronisation" x="153" y="-25">ack2!</label>
+			<nail x="340" y="0"/>
+			<nail x="0" y="0"/>
+		</transition>
+		<transition id="id36">
+			<source ref="id30"/>
+			<target ref="id29"/>
+			<label kind="guard" x="-25" y="68">water_level &lt; MIN_WATER || water_level &gt; MAX_WATER</label>
+		</transition>
+	</template>
+	<template>
+		<name>PLC3_ClimateControl</name>
+		<location id="id37" x="0" y="-136">
+			<name x="-17" y="-170">Idle</name>
+		</location>
+		<location id="id38" x="119" y="-136">
+			<name x="102" y="-170">Check</name>
+			<committed/>
+		</location>
+		<location id="id39" x="229" y="-136">
+			<name x="195" y="-170">Adjusting</name>
+		</location>
+		<location id="id40" x="340" y="-136">
+			<name x="314" y="-170">Verify</name>
+			<committed/>
+		</location>
+		<init ref="id37"/>
+		<transition id="id41">
+			<source ref="id37"/>
+			<target ref="id38"/>
+			<label kind="synchronisation" x="42" y="-136">req3?</label>
+		</transition>
+		<transition id="id42">
+			<source ref="id38"/>
+			<target ref="id37"/>
+			<label kind="guard" x="0" y="17">temperature &gt;= MIN_TEMP &amp;&amp; temperature &lt;= MAX_TEMP</label>
+			<label kind="synchronisation" x="42" y="-161">ack3!</label>
+		</transition>
+		<transition id="id43">
+			<source ref="id38"/>
+			<target ref="id39"/>
+			<label kind="guard" x="0" y="34">temperature &lt; MIN_TEMP || temperature &gt; MAX_TEMP</label>
+		</transition>
+		<transition id="id44">
+			<source ref="id39"/>
+			<target ref="id40"/>
+			<label kind="synchronisation" x="0" y="51">adj_temp!</label>
+		</transition>
+		<transition id="id45">
+			<source ref="id40"/>
+			<target ref="id37"/>
+			<label kind="guard" x="0" y="85">temperature &gt;= MIN_TEMP &amp;&amp; temperature &lt;= MAX_TEMP</label>
+			<label kind="synchronisation" x="170" y="-25">ack3!</label>
+			<nail x="340" y="0"/>
+			<nail x="0" y="0"/>
+		</transition>
+		<transition id="id46">
+			<source ref="id40"/>
+			<target ref="id39"/>
+			<label kind="guard" x="0" y="68">temperature &lt; MIN_TEMP || temperature &gt; MAX_TEMP</label>
+		</transition>
+	</template>
+	<template>
+		<name>PLC4_LightControl</name>
+		<location id="id47" x="0" y="-136">
+			<name x="-17" y="-170">Idle</name>
+		</location>
+		<location id="id48" x="107" y="-136">
+			<name x="85" y="-170">Check</name>
+			<committed/>
+		</location>
+		<location id="id49" x="221" y="-136">
+			<name x="187" y="-170">Adjusting</name>
+		</location>
+		<location id="id50" x="340" y="-136">
+			<name x="314" y="-170">Verify</name>
+			<committed/>
+		</location>
+		<init ref="id47"/>
+		<transition id="id51">
+			<source ref="id47"/>
+			<target ref="id48"/>
+			<label kind="synchronisation" x="34" y="-136">req4?</label>
+		</transition>
+		<transition id="id52">
+			<source ref="id48"/>
+			<target ref="id47"/>
+			<label kind="guard" x="-59" y="8">light_intensity &gt;= MIN_LIGHT &amp;&amp; light_intensity &lt;= MAX_LIGHT</label>
+			<label kind="synchronisation" x="34" y="-161">ack4!</label>
+		</transition>
+		<transition id="id53">
+			<source ref="id48"/>
+			<target ref="id49"/>
+			<label kind="guard" x="-59" y="25">light_intensity &lt; MIN_LIGHT || light_intensity &gt; MAX_LIGHT</label>
+		</transition>
+		<transition id="id54">
+			<source ref="id49"/>
+			<target ref="id50"/>
+			<label kind="synchronisation" x="-59" y="42">adj_light!</label>
+		</transition>
+		<transition id="id55">
+			<source ref="id50"/>
+			<target ref="id47"/>
+			<label kind="guard" x="-59" y="76">light_intensity &gt;= MIN_LIGHT &amp;&amp; light_intensity &lt;= MAX_LIGHT</label>
+			<label kind="synchronisation" x="136" y="-25">ack4!</label>
+			<nail x="340" y="0"/>
+			<nail x="0" y="0"/>
+		</transition>
+		<transition id="id56">
+			<source ref="id50"/>
+			<target ref="id49"/>
+			<label kind="guard" x="-59" y="59">light_intensity &lt; MIN_LIGHT || light_intensity &gt; MAX_LIGHT</label>
+		</transition>
+	</template>
+	<template>
+		<name>PLC5_CO2Control</name>
+		<location id="id57" x="0" y="-136">
+			<name x="-17" y="-170">Idle</name>
+		</location>
+		<location id="id58" x="107" y="-136">
+			<name x="85" y="-170">Check</name>
+			<committed/>
+		</location>
+		<location id="id59" x="221" y="-136">
+			<name x="187" y="-170">Adjusting</name>
+		</location>
+		<location id="id60" x="340" y="-136">
+			<name x="314" y="-170">Verify</name>
+			<committed/>
+		</location>
+		<init ref="id57"/>
+		<transition id="id61">
+			<source ref="id57"/>
+			<target ref="id58"/>
+			<label kind="synchronisation" x="34" y="-136">req5?</label>
+		</transition>
+		<transition id="id62">
+			<source ref="id58"/>
+			<target ref="id57"/>
+			<label kind="guard" x="-59" y="8">co2_percentage &gt;= MIN_CO2 &amp;&amp; co2_percentage &lt;= MAX_CO2</label>
+			<label kind="synchronisation" x="34" y="-161">ack5!</label>
+		</transition>
+		<transition id="id63">
+			<source ref="id58"/>
+			<target ref="id59"/>
+			<label kind="guard" x="-59" y="25">co2_percentage &lt; MIN_CO2 || co2_percentage &gt; MAX_CO2</label>
+		</transition>
+		<transition id="id64">
+			<source ref="id59"/>
+			<target ref="id60"/>
+			<label kind="synchronisation" x="-59" y="42">adj_co2!</label>
+		</transition>
+		<transition id="id65">
+			<source ref="id60"/>
+			<target ref="id57"/>
+			<label kind="guard" x="-59" y="76">co2_percentage &gt;= MIN_CO2 &amp;&amp; co2_percentage &lt;= MAX_CO2</label>
+			<label kind="synchronisation" x="136" y="-25">ack5!</label>
+			<nail x="340" y="0"/>
+			<nail x="0" y="0"/>
+		</transition>
+		<transition id="id66">
+			<source ref="id60"/>
+			<target ref="id59"/>
+			<label kind="guard" x="-59" y="59">co2_percentage &lt; MIN_CO2 || co2_percentage &gt; MAX_CO2</label>
+		</transition>
+	</template>
+	<template>
+		<name>WaterSensor</name>
+		<location id="id67" x="76" y="-51">
+			<name x="85" y="-76">Idle</name>
+		</location>
+		<location id="id68" x="-136" y="-51">
+			<name x="-146" y="-85">Sampling</name>
+			<committed/>
+		</location>
+		<init ref="id67"/>
+		<transition id="id69">
+			<source ref="id67"/>
+			<target ref="id68"/>
+			<label kind="synchronisation" x="-76" y="-42">read_water?</label>
+		</transition>
+		<transition id="id70">
+			<source ref="id68"/>
+			<target ref="id67"/>
+			<label kind="assignment" x="-272" y="-110">water_level = (water_level + 1) % (WATER_MAX_BOUND + 1)</label>
+		</transition>
+	</template>
+	<template>
+		<name>WaterActuator</name>
+		<location id="id71" x="34" y="-34">
+			<name x="51" y="-51">Idle</name>
+		</location>
+		<location id="id72" x="-102" y="-34">
+			<name x="-112" y="-68">Adjusting</name>
+			<committed/>
+		</location>
+		<init ref="id71"/>
+		<transition id="id73">
+			<source ref="id71"/>
+			<target ref="id72"/>
+			<label kind="synchronisation" x="-76" y="-25">adj_water?</label>
+			<label kind="assignment" x="-187" y="-8">water_level = (MIN_WATER + MAX_WATER)/2</label>
+		</transition>
+		<transition id="id74">
+			<source ref="id72"/>
+			<target ref="id71"/>
+		</transition>
+	</template>
+	<template>
+		<name>TempSensor</name>
+		<location id="id75" x="93" y="-76">
+			<name x="110" y="-93">Idle</name>
+		</location>
+		<location id="id76" x="-102" y="-76">
+			<name x="-112" y="-110">Sampling</name>
+			<committed/>
+		</location>
+		<init ref="id75"/>
+		<transition id="id77">
+			<source ref="id75"/>
+			<target ref="id76"/>
+			<label kind="synchronisation" x="-42" y="-68">read_temp?</label>
+		</transition>
+		<transition id="id78">
+			<source ref="id76"/>
+			<target ref="id75"/>
+			<label kind="assignment" x="-204" y="-136">temperature = (temperature + 1) % (TEMP_MAX_BOUND + 1)</label>
+		</transition>
+	</template>
+	<template>
+		<name>TempActuator</name>
+		<location id="id79" x="59" y="-51">
+			<name x="76" y="-68">Idle</name>
+		</location>
+		<location id="id80" x="-119" y="-51">
+			<name x="-129" y="-85">Adjusting</name>
+			<committed/>
+		</location>
+		<init ref="id79"/>
+		<transition id="id81">
+			<source ref="id79"/>
+			<target ref="id80"/>
+			<label kind="synchronisation" x="-76" y="-42">adj_temp?</label>
+			<label kind="assignment" x="-170" y="-25">temperature = (MIN_TEMP + MAX_TEMP)/2</label>
+		</transition>
+		<transition id="id82">
+			<source ref="id80"/>
+			<target ref="id79"/>
+		</transition>
+	</template>
+	<template>
+		<name>LightSensor</name>
+		<location id="id83" x="110" y="-68">
+			<name x="127" y="-76">Idle</name>
+		</location>
+		<location id="id84" x="-68" y="-68">
+			<name x="-78" y="-102">Sampling</name>
+			<committed/>
+		</location>
+		<init ref="id83"/>
+		<transition id="id85">
+			<source ref="id83"/>
+			<target ref="id84"/>
+			<label kind="synchronisation" x="-34" y="-59">read_light?</label>
+		</transition>
+		<transition id="id86">
+			<source ref="id84"/>
+			<target ref="id83"/>
+			<label kind="assignment" x="-204" y="-119">light_intensity = (light_intensity + 1) % (LIGHT_MAX_BOUND + 1)</label>
+		</transition>
+	</template>
+	<template>
+		<name>LightActuator</name>
+		<location id="id87" x="119" y="-34">
+			<name x="136" y="-42">Idle</name>
+		</location>
+		<location id="id88" x="-76" y="-34">
+			<name x="-86" y="-68">Adjusting</name>
+			<committed/>
+		</location>
+		<init ref="id87"/>
+		<transition id="id89">
+			<source ref="id87"/>
+			<target ref="id88"/>
+			<label kind="synchronisation" x="-17" y="-24">adj_light?</label>
+			<label kind="assignment" x="-136" y="-8">light_intensity = (MIN_LIGHT + MAX_LIGHT)/2</label>
+		</transition>
+		<transition id="id90">
+			<source ref="id88"/>
+			<target ref="id87"/>
+		</transition>
+	</template>
+	<template>
+		<name>CO2Sensor</name>
+		<location id="id91" x="110" y="-76">
+			<name x="127" y="-84">Idle</name>
+		</location>
+		<location id="id92" x="-68" y="-76">
+			<name x="-78" y="-110">Sampling</name>
+			<committed/>
+		</location>
+		<init ref="id91"/>
+		<transition id="id93">
+			<source ref="id91"/>
+			<target ref="id92"/>
+			<label kind="synchronisation" x="-17" y="-68">read_co2?</label>
+		</transition>
+		<transition id="id94">
+			<source ref="id92"/>
+			<target ref="id91"/>
+			<label kind="assignment" x="-195" y="-127">co2_percentage = (co2_percentage + 1) % (CO2_MAX_BOUND + 1)</label>
+		</transition>
+	</template>
+	<template>
+		<name>CO2Actuator</name>
+		<location id="id95" x="102" y="-25">
+			<name x="119" y="-33">Idle</name>
+		</location>
+		<location id="id96" x="-85" y="-25">
+			<name x="-95" y="-59">Adjusting</name>
+			<committed/>
+		</location>
+		<init ref="id95"/>
+		<transition id="id97">
+			<source ref="id95"/>
+			<target ref="id96"/>
+			<label kind="synchronisation" x="-25" y="-17">adj_co2?</label>
+			<label kind="assignment" x="-136" y="0">co2_percentage = (MIN_CO2 + MAX_CO2)/2</label>
+		</transition>
+		<transition id="id98">
+			<source ref="id96"/>
+			<target ref="id95"/>
+		</transition>
+	</template>
+	<system>
+// Instantiate PLCs
+plc1 = PLC1_EnvironmentCollector();
+plc2 = PLC2_IrrigationControl();
+plc3 = PLC3_ClimateControl();
+plc4 = PLC4_LightControl();
+plc5 = PLC5_CO2Control();
+
+// Instantiate sensors
+water_sensor = WaterSensor();
+temp_sensor = TempSensor();
+light_sensor = LightSensor();
+co2_sensor = CO2Sensor();
+
+// Instantiate actuators
+water_actuator = WaterActuator();
+temp_actuator = TempActuator();
+light_actuator = LightActuator();
+co2_actuator = CO2Actuator();
+
+// System definition
+system plc1, plc2, plc3, plc4, plc5,
+       water_sensor, temp_sensor, light_sensor, co2_sensor,
+       water_actuator, temp_actuator, light_actuator, co2_actuator;
+    </system>
+	<queries>
+		<query>
+			<formula>E&lt;&gt; plc1.CheckData and water_level &gt;= MIN_WATER and water_level &lt;= MAX_WATER</formula>
+			<comment>Verify water level can be within thresholds</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; plc2.Adjusting</formula>
+			<comment>Verify PLC2 can enter adjusting state</comment>
+		</query>
+		<query>
+			<formula>A[] (plc1.CollectData imply (water_sensor.Sampling or temp_sensor.Sampling or light_sensor.Sampling or co2_sensor.Sampling))</formula>
+			<comment>Verify sensors are only active during data collection</comment>
+		</query>
+	</queries>
+</nta>
