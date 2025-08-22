@@ -15,7 +15,7 @@ LIGHT_CHANGE_RATE = 25.0
 
 class LightPLC:
     def __init__(self, sender=None, overrides=None):
-        self.current_light = 500.0  # ✅ Start in the middle
+        self.current_light = 500.0  # Start in the middle
         self.lamp_pct = 0           # 0–100% power for lamp
         self.shutter_pct = 0        # 0–100% for blocking light
         self.direction = random.choice([0, 1])  # 0 = down, 1 = up
@@ -90,6 +90,6 @@ class LightPLC:
             time.sleep(1)
 
     def run(self, cycles=1):
-        pass  # Not used
+        pass  
 
 __all__ = ['LightPLC', 'MIN_LIGHT', 'MAX_LIGHT', 'MIN_LIGHT_EXT', 'MAX_LIGHT_EXT']

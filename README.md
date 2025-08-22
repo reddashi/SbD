@@ -19,4 +19,4 @@ there are 2 types of attacks,
 1 is the override in pyside.py 
 2 is pushing in random values into the database influx_attack.py
 
-if you want more info, you can checkout the ppt for the details.
+if you want more info, you can checkout the ppt and report for the details.

@@ -549,7 +549,7 @@ class DetectionTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        title = QLabel("🔍Attack Detection")  # Removed emoji
+        title = QLabel("🔍Attack Detection")  
         f = title.font()
         f.setPointSize(16)
         f.setBold(True)

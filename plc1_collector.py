@@ -14,7 +14,7 @@ from light_plc import LightPLC, MIN_LIGHT, MAX_LIGHT
 from irr_plc import IrrigationPLC, MIN_MOISTURE, MAX_MOISTURE
 from co2_plc import CO2PLC, MIN_CO2, MAX_CO2
  
-# --- InfluxDB setup (same env variables as before) ---
+# --- InfluxDB setup ---
 token  = os.environ.get("INFLUXDB_TOKEN") or os.environ.get("INFLUX_TOKEN")
 org    = os.environ.get("INFLUXDB_ORG") or os.environ.get("INFLUX_ORG") or "SUTD"
 bucket = os.environ.get("INFLUXDB_BUCKET") or os.environ.get("INFLUX_BUCKET") or "greenhouse"
@@ -23,7 +23,7 @@ url    = os.environ.get("INFLUXDB_URL") or os.environ.get("INFLUX_URL") or "http
 client    = InfluxDBClient(url=url, token=token, org=org)
 write_api = client.write_api(write_options=SYNCHRONOUS)
  
-# --- Thresholds (unchanged) ---
+# --- Thresholds ---
 THRESHOLDS = {
     "temperature": (MIN_TEMP, MAX_TEMP),
     "light":       (MIN_LIGHT, MAX_LIGHT),
@@ -31,7 +31,7 @@ THRESHOLDS = {
     "co2":         (MIN_CO2, MAX_CO2),
 }
  
-# Latest packets from each PLC (unchanged)
+# Latest packets from each PLC
 sensor_values = {"temp": None, "light": None, "irrigation": None, "co2": None}
  
 # IMPORTANT: PLCs read this dict expecting NUMBERS. Keep it numeric.
@@ -133,12 +133,12 @@ def main():
             for field, (vmin, vmax) in list(range_overrides.items()):
                 overrides[field] = random.uniform(vmin, vmax)
  
-        # Step each PLC once (same as original)
+        # Step each PLC once 
         threads = [threading.Thread(target=run_once, args=(w,)) for w in workers]
         for t in threads: t.start()
         for t in threads: t.join()
  
-        # Build outgoing payload from latest PLC packets (unchanged)
+        # Build outgoing payload from latest PLC packets 
         sensors = {
             "temperature": sensor_values["temp"]["temperature"]         if sensor_values["temp"]        else 0.0,
             "light":       sensor_values["light"]["light"]               if sensor_values["light"]       else 0.0,
@@ -163,7 +163,7 @@ def main():
         output = {"sensors": sensors, "actuators": actuators, "alerts": alerts}
         print(json.dumps(output), flush=True)
  
-        # Influx write (unchanged)
+        # Influx write
         point = (
             Point("greenhouse")
             .tag("location", "greenhouse_room_1")
