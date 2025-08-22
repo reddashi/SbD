@@ -1,0 +1,47 @@
+﻿IF S:FS THEN
+	ThresTemp1:= 25.0;
+	ThresTemp2:= 27.0;
+
+END_IF;
+
+// Turn on heater DO_02 if temperature is below 25°C 
+IF Temp1 < ThresTemp1 THEN
+ DO_01 := 1;
+ELSE
+ DO_01 := 0;
+END_IF;
+
+// Turn on cooler DO_04 if temperature is above 27°C 
+IF Temp1 > ThresTemp2 THEN
+ DO_04 := 1;
+ELSE
+ DO_04 := 0;
+END_IF;
+
+// acting as a low power heater
+IF Temp1 < ThresTemp1 THEN
+ DO_02 := 1; 
+ELSE
+ DO_02 := 0;  
+END_IF;
+
+// acting as a high power heater 
+IF Temp1 < (ThresTemp1 - 1.0) THEN
+ DO_03 := 1; 
+ELSE
+ DO_03 := 0; 
+END_IF;
+
+// acting as a low power cooler 
+IF Temp1 > ThresTemp2 THEN
+  DO_06 := 1; 
+  ELSE
+  DO_06 := 0; 
+END_IF;
+
+// acting as a high power cooler
+IF Temp1 > (ThresTemp2 + 1.0) THEN
+  DO_07 := 1; 
+  ELSE
+  DO_07 := 0; 
+END_IF;
